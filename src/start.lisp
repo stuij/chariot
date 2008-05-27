@@ -75,16 +75,16 @@
   (return-stack-base r10)               ; return stack base
   (dp r9)                               ; pointer to last dictionary entry
   (jr r8)                               ; for referencing user variables
-  (tp r7)                               ; terminal input buffer pointer
-  (ip r6) ; points to next word to be executed in chain of cfa(code field address)'s
-  (w  r5) ; word address register. first points to cfa then points to p[arameter]fa/code.
-  (tmp-1 r4)
-  (tmp-2 r3)
-  (tmp-3 r2)
-  (tmp-4 r1)) 
+  (ip r7) ; points to next word to be executed in chain of cfa(code field address)'s
+  (w  r6) ; word address register. first points to cfa then points to p[arameter]fa/code.
+  (tmp-1 r5)
+  (tmp-2 r4)
+  (tmp-3 r3)
+  (tmp-4 r2)) 
 
 (defvar *return-stack-base-addr*)
 (defvar *parameter-stack-base-addr*)
+(defvar tib-base)
 (defvar imm-flag #x80)
 (defvar hidden-flag #x20)
 (defvar lenmask-flag #x1f)
@@ -99,6 +99,10 @@
    ;; var to hold the last link address in the word chain
    (def-asm-param link 0)))
 
+(def-asm-fn-lite tmp
+  ;; just some to be referenced areas which still need a proper place in some way or form
+  :tib-base
+  )
 
 (def-asm-fn bla ()
   (emit-asm
@@ -519,4 +523,32 @@
 (defcode dsp! ()
   (pop-ps sp))
 
-;;
+;; in- and output
+(defcode key ()
+  (bl :%key)
+  (push-ps tmp-1))
+
+(def-asm-fn-lite %key
+  (ldr tmp-2 :curr-key)
+  (ldr tmp-3 :buff-top)
+  (cmp tmp-2 tmp-3)      ;; no more input
+  (bge :get-input)       ;; get some more input
+  (ldrb tmp-1 (tmp-2) 1) ;; otherwise read byte and increment curr-key
+  (str tmp-2 :curr-key)  ;; store curr key back in mem location
+                         ;; and please hack the assembler to make this store form valid
+  (mov lr pc)            ;; and branch back to key
+  
+  :key-input
+  ;; unimplementable, cause don't know how
+  ;; waiting for DSerial and we'll see how to interface the tib with some input
+  
+  :curr-key
+  (word tib-base)
+  :buff-top
+  (word tib-base))
+
+(defcode emit ()
+  ;; emits a byte to output, where-ever that is.
+  ;; is going to be implemented once I've got more of a clue
+  )
+
