@@ -80,7 +80,9 @@
   (tmp-1 r5)
   (tmp-2 r4)
   (tmp-3 r3)
-  (tmp-4 r2)) 
+  (tmp-4 r2)
+  (tmp-5 r1)
+  (tmp-6 r0)) 
 
 (defvar *return-stack-base-addr*)
 (defvar *parameter-stack-base-addr*)
@@ -217,7 +219,7 @@
 (def-forth-var state ())
 (def-forth-var latest ())
 (def-forth-var here ())
-(def-forth-var base () 10)
+(def-forth-var base () 16)
 
 ;; constants
 (def-forth-const version () 1)
@@ -535,8 +537,8 @@
   (bge :get-input)       ;; get some more input
   (ldrb tmp-1 (tmp-2) 1) ;; otherwise read byte and increment curr-key
   (str tmp-2 :curr-key)  ;; store curr key back in mem location
-                         ;; and please hack the assembler to make this store form valid
-  (mov lr pc)            ;; and branch back to key
+  ;; and please hack the assembler to make this store form valid
+  (mov lr pc) ;; and branch back to key
   
   :key-input
   ;; unimplementable, cause don't know how
@@ -552,3 +554,108 @@
   ;; is going to be implemented once I've got more of a clue
   )
 
+(defcode word ()
+  (bl :%word)
+  (push-ps tmp-3)  ;; word base address
+  (push-ps tmp-2)) ;; word length
+
+(def-asm-fn-lite %word
+  (bl :%key)
+  (teq tmp-1 #\\)
+  (beq :skip-comment)
+  (teq tmp-1 #\space)
+  (beq :%word)
+
+  (ldr tmp-2 (address :word-buffer))
+  (mov tmp-3 tmp-2)
+  
+  :search-word-end
+  (strb tmp-1 (tmp-2) 1) ;; put char in word-buffer and increment
+  (bl :%key)
+  (teq tmp-1 #\space)
+  (bne :search-word-end)
+
+  (sub tmp-2 tmp-2 tmp-3) ;; determine word lenght
+  
+  :skip-comment
+  (bl :%key)
+  (teq #\newline)
+  (bne :skip-comment)
+  (beq :%word)
+
+  :word-buffer
+  (byte 32)
+  pool)
+
+;; parsing numbers
+(defcode number ()
+  (pop-ps tmp-3) ;; length of string
+  (pop-ps tmp-4) ;; start of string
+  (bl :%number)
+  (push tmp-2)   ;; parsed nr
+  (push tmp-3))  ;; nr of unparsed chars (0 = error)
+
+(def-asm-fn-lite %number
+  (mov tmp-1 1)
+  (mov tmp-2 1)
+
+  (tst tmp-3 tmp-3) ;; check if string length is 0
+  (beq :return-nr)
+
+  (ldr tmp-5 (address :base-var)) ;; load the
+  (ldr tmp-5 (tmp-5))             ;; current base
+  
+  ;; check if first char is #\-
+  (push-ps tmp-1) ;; put 1 on stack indicating positive
+  
+  (ldrb tmp-1 (tmp-4) 1) ;; load char and increment
+  (teq tmp-1 #\-)
+  (bne :convert-to-nr)
+
+  (pop-ps tmp-1)    ;; take away positive indicator
+  (mov tmp-1 0)     ;; turns out nr is negative
+  (push-ps tmp-1)   ;; put negative indicator on stack
+
+  (subs tmp-3 tmp-3 1)
+  (bpi :loop-min-mult) ;; if more digits loop for them
+  (pop-ps tmp-1) ;; otherwise we're stuck with only a '-' which is no digit at all
+  (mv lr pc)     ;; and return
+
+  :loop-for-digits
+  (mul tmp-2 tmp-2 tmp-5) ;; tmp-2 (*= tmp-2 base), so shift nr, sort of
+
+  :loop-min-mult
+  (ldrb tmp-1 (tmp-4) 1)
+  
+  :convert-to-nr
+  (subs tmp-1 tmp-1 #\0)
+  (blt :wrap-up-nr) ;; aka error
+  (cmp tmp-1 10)    ;; check if lower than '9'
+  (blt :base-overflow-p)
+  (subs tmp-1 tmp-1 17) ;; check if lower than 'A'
+  (blt :wrap-up-nr)    ;; aka error
+  (cmp tmp-1 26)       ;; check if nr is in range 'A'-'Z'
+  (addlt tmp-1 tmp-1 10) ;; if so add 10
+  (blt :add-to-nr)       ;; and branch to overflow
+  (subs tmp-1 tmp-1 33)   ;; otherwise add 26 plus 7 to get to 'a'-'z'
+  (blt :wrap-up-nr)      ;; lower than that is error
+  (add tmp-1 tmp-1 10) ;; otherwise leave it up to base-overflow to see if we went over 'z'
+  
+  :base-overflow-p
+  (cmp tmp-5 tmp-1) ;; compare nr to base
+  (bge :wrap-up-nr) ;; to big? error
+
+  :add-to-nr
+  (add tmp-2 tmp-2 tmp-1)
+  (subs tmp-3 tmp-3 1)
+  (bgt :loop-for-digits)
+  
+  :wrap-up-nr ;; done, negate nr and get out of here
+  (pop-rs tmp-5)
+  (tst tmp-5 tmp-5)
+  (rsbeq tmp-2 tmp-2 0)
+
+  :return-nr
+  (mov lr pc)
+    
+  pool)
