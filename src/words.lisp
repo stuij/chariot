@@ -83,8 +83,16 @@
 (def-forth-const lenmask-flag () hidden-flag)
 
 
+;; cool functions
+(defcode exit ()
+  (pop-rs ip))
 
-;; some words
+(defcode lit ()
+  (ldr ip (ip) 4)
+  (push-ps ip))
+
+
+;; the mundane
 (defcode drop ()
   (pop-ps tmp-1))
 
@@ -187,6 +195,8 @@
 #-(and) (defcode /mod ()
           "remains unimplemented for now. have to see how to best handle division on arm")
 
+
+
 ;; comparation fn's
 (defcode = ()
   (pop-ps tmp-1)
@@ -279,6 +289,8 @@
   (movlt tmp-3 0)
   (push-ps tmp-3))
 
+
+
 ;; logical
 (defcode and ()
   (pop-ps tmp-1)
@@ -309,13 +321,7 @@
   (mvn tmp-2 tmp-1)
   (push-ps tmp-3))
 
-;; cool functions
-(defcode exit ()
-  (pop-rs ip))
 
-(defcode lit ()
-  (ldr ip (ip) 4)
-  (push-ps ip))
 
 ;; memory manipulation!
 (defcode ! ()
@@ -374,12 +380,16 @@
 (defcode rdrop ()
   (pop-rs tmp-1))
 
+
+
 ;; parameter (return) stack manipulation
 (defcode dsp@ ()
   (push-ps sp))
 
 (defcode dsp! ()
   (pop-ps sp))
+
+
 
 ;; in- and output
 (defcode key ()
@@ -442,6 +452,8 @@
   :word-buffer
   (byte 32)
   pool)
+
+
 
 ;; parsing numbers
 (defcode number ()
