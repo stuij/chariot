@@ -15,7 +15,8 @@
  liards::*arm7-bin*
  "fuck-around.nds")
 
-(assemble 'arm9 'arm '(:blob (ldr r7 (address :blob))))
+(assemble 'arm9 'arm '((def-asm-param link 0) (set-asm-param link (address :blob))
+                       :blob (word link)))
 
 (set-asm-init-routines
   (emit-asm
@@ -32,28 +33,29 @@
    ;; to test next functionality. put ip at beginning of simulated word
    (ldr ip (address :words))
 
-   (ldr tmp-1 1)
-   (ldr tmp-2 2)
-   (ldr tmp-3 3)
-   
-   (push-ps tmp-1)
-   (push-ps tmp-2)
-   (push-ps tmp-3)
-
    (b :init-break) ;; first we jump over non-instructions
 
    ;; simulating part of a word
    :words
    (word (address :test1))
    (word (address :test2))
-   
+   (word (address :test3))
+   (word (address :test4))
+      
    pool
    
    :init-break
    ;; then we break the debugger JUST before the test-code
-   (bkpt 1)
+   (bkpt 0)
 
    next))
+
+(def-forth-var test1 () 3)
+(def-forth-var test2 ())
+
+(def-forth-const test3 () imm-flag)
+(def-forth-const test4 () (address :test1))
+
 
 (defcode test1 ()
   (pop-ps tmp-1))
