@@ -15,13 +15,13 @@
     `(progn
        (setf (gethash ,word-name *forth-words*) (cons ,label ,link-label))
        (def-asm-fn ,(intern (symbol-name link-label))
-         (word link)
+         (word (ia link))
          (byte ,(+ flags word-length))
          (string ,word-name)
          align
          ,label
          ,@body
-         (set-asm-param link (address ,label))))))
+         (set-asm-param link (address ,link-label))))))
 
 (defmacro defword (name more-params &body words)
   (let ((word-list (loop for word in words
@@ -40,7 +40,7 @@
        ,@code
        next)))
 
-(defmacro def-forth-var (name more-params &optional val)
+(defmacro def-forth-var (name more-params &optional (val 0))
   (let* ((label (intern (symbol-name name) :keyword))
          (code-label (intern (symbol-name (concat-symbol label "-CODE")) :keyword))
          (var-label (intern (symbol-name (concat-symbol label "-VAR")) :keyword)))
@@ -50,19 +50,22 @@
        (ldr tmp-1 (address ,var-label))
        (push-ps tmp-1)
        next
-       pool
        ,var-label
-       (word ,val))))
+       (word ,val)
+       pool)))
 
-(defmacro def-forth-const (name more-params &optional val)
+(defmacro def-forth-const (name more-params val)
   (let* ((label (intern (symbol-name name) :keyword))
-         (code-label (intern (symbol-name (concat-symbol label "-CODE")) :keyword)))
+         (code-label (intern (symbol-name (concat-symbol label "-CODE")) :keyword))
+         (var-label (intern (symbol-name (concat-symbol label "-VAR")) :keyword)))
     `(defword-builder ,name ,more-params
        (word (address ,code-label))
        ,code-label
-       (push-ps ,val)
+       (ldr tmp-1 ,var-label)
+       (push-ps tmp-1)
        next
-       pool)))
+       ,var-label
+       (word ,val))))
 
 
 
