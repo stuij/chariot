@@ -52,6 +52,17 @@
 ;;
 ;;   --------------
 
+;; assembly
+
+(def-asm-space chariot)
+(def-block chariot-setup :in chariot)
+
+
+(def-space-n-blocks chariot
+  (chariot-setup :base-address 0))
+
+(in-asm-space chariot)
+
 ;; helpers
 (defmacro set-fth-regs (&body regs)
   "just a shortcut to define register globals"
@@ -60,7 +71,7 @@
 
 (defmacro def-fth-prim (name &body instrs)
   "A wrapper for forth primitive definitions. Not so sure yet how to frame this mess."
-  `(def-asm-fn ,name ()
+  `(def-asm-fn-raw ,name ()
      (gather ,@instrs)))
 
 (setf *jr* 'r9)               ; because it's r9 in mandel. So completely random.
@@ -70,50 +81,58 @@
   (pc  pc)              ; instruction pointer (as in hardware, not the forth ip)
   (lr r14)                              ; hw link register
   (sp r13)                              ; parameter stack pointer
-  (stack-base r12)                      ; parameter stack base
-  (rp r11)                              ; return stack pointer
-  (return-stack-base r10)               ; return stack base
-  (dp r9)                               ; pointer to last dictionary entry
-  (jr r8)                               ; for referencing user variables
+  (sb r12)                              ; parameter stack base
+  (tib r11)                             ; terminal input buffer pointer
+  (rp r10)                              ; return stack pointer
+  (rb r9)                               ; return stack base
+  (dp r8)                               ; pointer to last dictionary entry
   (ip r7) ; points to next word to be executed in chain of cfa(code field address)'s
   (w  r6) ; word address register. first points to cfa then points to p[arameter]fa/code.
-  (tmp-1 r5)
-  (tmp-2 r4)
+  (tmp-5 r5)
+  (tmp-4 r4)
   (tmp-3 r3)
-  (tmp-4 r2)
-  (tmp-5 r1)
-  (tmp-6 r0)) 
+  (tmp-2 r2)
+  (tmp-1 r1)
+  (jr r0)                               ; for referencing user variables
+  ) 
 
-(defvar *return-stack-base-addr*)
-(defvar *parameter-stack-base-addr*)
-(defvar tib-base)
+(setf *base-address* #x02000000)
+
+(defparameter *ps-base* (+ *base-address* #x10000))
+(defparameter *tib-base* (+ *ps-base* #x1000))
+(defparameter *rs-base* (+ *tib-base* #x4000))
 (defvar imm-flag #x80)
 (defvar hidden-flag #x20)
 (defvar lenmask-flag #x1f)
 
 
-(setf *base-address* #x200000)
-
 (set-asm-init-routines
   (emit-asm
-   ;; first we make some global variables
-  
    ;; var to hold the last link address in the word chain
-   (def-asm-param link 0)))
+   (def-asm-param link 0)
 
-(def-asm-fn-lite tmp
+   ;; setting up the regs we need to set up
+   (ldr sb *ps-base*)
+   (mov sp sb)
+   (ldr tib *tib-base*)
+   (ldr rb *rs-base*)
+   (mov rp rb)
+   
+   (b :init-fn) ;; to be defined
+   ;; first we jump over the pool
+   pool
+   ))
+
+
+(def-asm-fn tmp
   ;; just some to be referenced areas which still need a proper place in some way or form
   :tib-base
   )
 
-(def-asm-fn bla ()
-  (emit-asm
-   (def-asm-param imm-flag #x80)))
-
 (def-asm-macro-lite next
-  (ldr w (ip) 4) ;; load cfa of next word in w and point ip to next word
-  (ldr w w)      ;; load pfa/codeword or assembly of that next word
-  (mov pc w))    ;; branch to it
+  (ldr w (ip) 4)   ;; load cfa of next word in w and point ip to next word
+  (ldr w (w))      ;; load pfa/codeword or assembly of that next word
+  (mov pc w))      ;; branch to it
 
 (def-asm-macro push-rs (reg &key cond)
   ;; todo: needs bounds checking but can't be bothered with error handling right now
@@ -143,7 +162,7 @@
                   'ldr)))
     `((,load ,reg (sp) 4))))
 
-(def-asm-fn-lite docol
+(def-asm-fn docol
   (push-rs ip)
   (add w w 4) ;; w already points to codeword of word thanks to next. Increment to point to first word in definition
   (mov ip w)  ;; put word in ip so we can call next on it
@@ -165,11 +184,11 @@
             "word lenght of ~a is bigger than 32" word-length)
     `(progn
        (setf (gethash ,word-name *forth-words*) (cons ,label ,link-label))
-       (def-asm-fn-lite ,(intern (symbol-name link-label))
+       (def-asm-fn ,(intern (symbol-name link-label))
          (word link)
          (byte ,(+ flags word-length))
          (string ,word-name)
-         (align)
+         align
          ,label
          ,@body
          (set-asm-param link (address ,label))))))
@@ -530,7 +549,7 @@
   (bl :%key)
   (push-ps tmp-1))
 
-(def-asm-fn-lite %key
+(def-asm-fn %key
   (ldr tmp-2 :curr-key)
   (ldr tmp-3 :buff-top)
   (cmp tmp-2 tmp-3)      ;; no more input
@@ -545,9 +564,9 @@
   ;; waiting for DSerial and we'll see how to interface the tib with some input
   
   :curr-key
-  (word tib-base)
+  (word *tib-base*)
   :buff-top
-  (word tib-base))
+  (word *tib-base*))
 
 (defcode emit ()
   ;; emits a byte to output, where-ever that is.
@@ -559,7 +578,7 @@
   (push-ps tmp-3)  ;; word base address
   (push-ps tmp-2)) ;; word length
 
-(def-asm-fn-lite %word
+(def-asm-fn %word
   (bl :%key)
   (teq tmp-1 #\\)
   (beq :skip-comment)
@@ -595,7 +614,7 @@
   (push tmp-2)   ;; parsed nr
   (push tmp-3))  ;; nr of unparsed chars (0 = error)
 
-(def-asm-fn-lite %number
+(def-asm-fn %number
   (mov tmp-1 1)
   (mov tmp-2 1)
 
@@ -633,11 +652,11 @@
   (cmp tmp-1 10)    ;; check if lower than '9'
   (blt :base-overflow-p)
   (subs tmp-1 tmp-1 17) ;; check if lower than 'A'
-  (blt :wrap-up-nr)    ;; aka error
-  (cmp tmp-1 26)       ;; check if nr is in range 'A'-'Z'
+  (blt :wrap-up-nr)     ;; aka error
+  (cmp tmp-1 26)        ;; check if nr is in range 'A'-'Z'
   (addlt tmp-1 tmp-1 10) ;; if so add 10
   (blt :add-to-nr)       ;; and branch to overflow
-  (subs tmp-1 tmp-1 33)   ;; otherwise add 26 plus 7 to get to 'a'-'z'
+  (subs tmp-1 tmp-1 33)  ;; otherwise add 26 plus 7 to get to 'a'-'z'
   (blt :wrap-up-nr)      ;; lower than that is error
   (add tmp-1 tmp-1 10) ;; otherwise leave it up to base-overflow to see if we went over 'z'
   
