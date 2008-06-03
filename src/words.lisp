@@ -96,22 +96,18 @@
 (defcode drop ()
   (pop-ps tmp-1))
 
-(defcode 2drop ()
-  (pop-ps tmp-1)
-  (pop-ps tmp-1))
-
 (defcode dup ()
-  (str tmp-1 (rp -4))
+  (ldr tmp-1 (sp))
   (push-ps tmp-1))
 
 (defcode 2dup ()
-  (str tmp-1 (rp -4))
-  (str tmp-2 (rp -8))
+  (ldr tmp-1 (sp))
+  (ldr tmp-2 (sp 4))
   (push-ps tmp-2)
   (push-ps tmp-1))
 
 (defcode over ()
-  (str tmp-1 (rp -8))
+  (str tmp-1 (sp 4))
   (push-ps tmp-1))
 
 ;; perhaps todo: swap, rot, -rot, etc are perhaps better (faster) served with
@@ -150,7 +146,7 @@
   (push-ps tmp-3))
 
 (defcode ?dup ()
-  (str tmp-1 (rp -4))
+  (str tmp-1 (sp))
   (teq tmp-1 0)
   (push-ps tmp-1 :cond ne))
 
@@ -198,11 +194,12 @@
 
 
 ;; comparation fn's
+
 (defcode = ()
   (pop-ps tmp-1)
   (pop-ps tmp-2)
   (teq tmp-1 tmp-2)
-  (moveq tmp-3 1 :lsl 1)
+  (mvneq tmp-3 0)
   (movne tmp-3 0)
   (push-ps tmp-3))
 
@@ -210,39 +207,39 @@
   (pop-ps tmp-1)
   (pop-ps tmp-2)
   (teq tmp-1 tmp-2)
-  (movne tmp-3 1 :lsl 1)
+  (mvnne tmp-3 0)
   (moveq tmp-3 0)
   (push-ps tmp-3))
 
 (defcode < ()
-  (pop-ps tmp-1)
   (pop-ps tmp-2)
+  (pop-ps tmp-1)
   (cmp tmp-1 tmp-2)
-  (movlt tmp-3 1 :lsl 1)
+  (mvnlt tmp-3 0) ;; lower than = true
   (movge tmp-3 0)
   (push-ps tmp-3))
 
 (defcode > ()
-  (pop-ps tmp-1)
   (pop-ps tmp-2)
+  (pop-ps tmp-1)
   (cmp tmp-1 tmp-2)
-  (movle tmp-3 1 :lsl 1)
-  (movgt tmp-3 0)
+  (mvngt tmp-3 0)
+  (movle tmp-3 0)
   (push-ps tmp-3))
 
 (defcode <= ()
-  (pop-ps tmp-1)
   (pop-ps tmp-2)
+  (pop-ps tmp-1)
   (cmp tmp-1 tmp-2)
-  (movle tmp-3 1 :lsl 1)
+  (mvnle tmp-3 0)
   (movgt tmp-3 0)
   (push-ps tmp-3))
 
 (defcode >= ()
-  (pop-ps tmp-1)
   (pop-ps tmp-2)
+  (pop-ps tmp-1)
   (cmp tmp-1 tmp-2)
-  (movge tmp-3 1 :lsl 1)
+  (mvnge tmp-3 0)
   (movlt tmp-3 0)
   (push-ps tmp-3))
 
@@ -250,42 +247,42 @@
 (defcode 0= ()
   (pop-ps tmp-1)
   (teq tmp-1 0)
-  (moveq tmp-3 1 :lsl 1)
+  (mvneq tmp-3 0)
   (movne tmp-3 0)
   (push-ps tmp-3))
 
 (defcode 0<> ()
   (pop-ps tmp-1)
   (teq tmp-1 0)
-  (movne tmp-3 1 :lsl 1)
+  (mvnne tmp-3 0)
   (moveq tmp-3 0)
   (push-ps tmp-3))
 
 (defcode 0< ()
   (pop-ps tmp-1)
   (cmp tmp-1 0)
-  (movlt tmp-3 1 :lsl 1)
+  (mvnlt tmp-3 0)
   (movge tmp-3 0)
   (push-ps tmp-3))
 
 (defcode 0> ()
   (pop-ps tmp-1)
   (cmp tmp-1 0)
-  (movle tmp-3 1 :lsl 1)
-  (movgt tmp-3 0)
+  (mvngt tmp-3 0)
+  (movle tmp-3 0)
   (push-ps tmp-3))
 
 (defcode 0<= ()
   (pop-ps tmp-1)
   (cmp tmp-1 0)
-  (movle tmp-3 1 :lsl 1)
+  (mvnle tmp-3 0)
   (movgt tmp-3 0)
   (push-ps tmp-3))
 
 (defcode 0>= ()
   (pop-ps tmp-1)
   (cmp tmp-1 0)
-  (movge tmp-3 1 :lsl 1)
+  (mvnge tmp-3 0)
   (movlt tmp-3 0)
   (push-ps tmp-3))
 
@@ -310,12 +307,6 @@
   (eor tmp-3 tmp-1 tmp-2)
   (push-ps tmp-3))
 
-(defcode xor ()
-  (pop-ps tmp-1)
-  (pop-ps tmp-2)
-  (eor tmp-3 tmp-1 tmp-2)
-  (push-ps tmp-3))
-
 (defcode invert ()
   (pop-ps tmp-1)
   (mvn tmp-2 tmp-1)
@@ -327,7 +318,7 @@
 (defcode ! ()
   (pop-ps tmp-1)
   (pop-ps tmp-2)
-  (str tmp-1 (tmp-2)))
+  (str tmp-2 (tmp-1)))
 
 (defcode @ ()
     (pop-ps tmp-1)
@@ -341,17 +332,17 @@
   (add tmp-4 tmp-3 tmp-2)
   (str tmp-4 (tmp-1)))
 
-(defcode +! ()
+(defcode -! ()
   (pop-ps tmp-1)
   (pop-ps tmp-2)
   (ldr tmp-3 (tmp-1))
-  (add tmp-4 tmp-3 tmp-2)
+  (sub tmp-4 tmp-3 tmp-2)
   (str tmp-4 (tmp-1)))
 
 (defcode c! ()
   (pop-ps tmp-1)
   (pop-ps tmp-2)
-  (strb tmp-1 (tmp-2)))
+  (strb tmp-2 (tmp-1)))
 
 (defcode c@ ()
   (pop-ps tmp-1)
@@ -361,6 +352,8 @@
 ;; block copying. will look at it later
 #-(and) ((defcode c@c!)
          (defcode cmove))
+
+
 
 ;; return stack manipulation
 (defcode >r ()
@@ -384,7 +377,8 @@
 
 ;; parameter (return) stack manipulation
 (defcode dsp@ ()
-  (push-ps sp))
+  (mov tmp-1 sp)
+  (push-ps tmp-1))
 
 (defcode dsp! ()
   (pop-ps sp))
