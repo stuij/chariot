@@ -135,7 +135,7 @@
 
 ;; to circumvent no$gba problems
 (def-asm-macro b-and-l (label)
-  `((mv pc lr)
+  `((mov lr pc)
     (b ,label)))
 
 (def-asm-fn docol
