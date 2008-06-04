@@ -6,17 +6,28 @@
 (in-asm-space fuck-around)
 (in-block fa-block)
 
-(clear-current-block)
+*current-asm-block*
 
-*current-asm-block* 
+(assemble 'arm9 'arm '((movmi r3 r4))) 
+
+(clear-current-block)
 
 (liards::nds-compile
  (assemble 'arm9 'arm (emit-arm-fns))
  liards::*arm7-bin*
  "fuck-around.nds")
 
-(assemble 'arm9 'arm '((def-asm-param link 0) (set-asm-param link (address :blob))
-                       :blob (word link)))
+(set-asm-init-routines
+  (emit-asm
+   (bkpt 0)
+   (bl :link)
+   :link
+   (str r14 (r10 -4)!)
+   (mov r1 1)
+   (mov r2 2)
+   (mov r3 3)
+   :loop
+   (b :loop)))
 
 (set-asm-init-routines
   (emit-asm
@@ -30,36 +41,28 @@
    (ldr rb *rs-base*)
    (mov rp rb)
 
+   
    ;; to test next functionality. put ip at beginning of simulated word
    (ldr ip (address :words))
 
    (b :init-break) ;; first we jump over non-instructions
-
+   
    ;; simulating part of a word
    :words
-   (word (address :test1))
-   (word (address :test2))
-   (word (address :test3))
-   (word (address :test4))
-      
+
+   (word (address :word))
+   (word (address :eternal))
+
    pool
+
+   :tib-base
+   "                      \\uncouch 
+       cow jumps over the wretched hen, and eats her alive afterwards"
+   :tib-top
+   align
    
    :init-break
    ;; then we break the debugger JUST before the test-code
    (bkpt 0)
 
    next))
-
-(def-forth-var test1 () 3)
-(def-forth-var test2 ())
-
-(def-forth-const test3 () imm-flag)
-(def-forth-const test4 () (address :test1))
-
-
-(defcode test1 ()
-  (pop-ps tmp-1))
-
-(defcode test2 ()
-  (pop-ps tmp-1)
-  (pop-ps tmp-1))
