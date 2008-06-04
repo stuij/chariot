@@ -67,8 +67,6 @@
        ,var-label
        (word ,val))))
 
-
-
 ;; built-in variables
 (def-forth-var state ())
 (def-forth-var latest ())
@@ -91,6 +89,9 @@
   (ldr ip (ip) 4)
   (push-ps ip))
 
+(defcode eternal ()
+  :eternal-loop
+  (b :eternal-loop))
 
 ;; the mundane
 (defcode drop ()
@@ -387,7 +388,7 @@
 
 ;; in- and output
 (defcode key ()
-  (bl :%key)
+  (b-and-l :%key)
   (push-ps tmp-1))
 
 (def-asm-fn %key
@@ -397,17 +398,20 @@
   (bge :get-input)       ;; get some more input
   (ldrb tmp-1 (tmp-2) 1) ;; otherwise read byte and increment curr-key
   (str tmp-2 :curr-key)  ;; store curr key back in mem location
-  ;; and please hack the assembler to make this store form valid
-  (mov pc lr) ;; and branch back to key
+  (mov pc lr) ;; and branch back to caller
   
-  :key-input
+  :get-input
+  (b :get-input)
   ;; unimplementable, cause don't know how
   ;; waiting for DSerial and we'll see how to interface the tib with some input
+
+  ;; we peg a line of text as a temporary tib, until we've got the whole machinery
+  ;; going
   
   :curr-key
-  (word *tib-base*)
+  (word (address :tib-base))
   :buff-top
-  (word *tib-base*))
+  (word (address :tib-top)))
 
 (defcode emit ()
   ;; emits a byte to output, where-ever that is.
@@ -415,12 +419,14 @@
   )
 
 (defcode word ()
-  (bl :%word)
+  (b-and-l :%word)
   (push-ps tmp-3)  ;; word base address
   (push-ps tmp-2)) ;; word length
 
 (def-asm-fn %word
-  (bl :%key)
+  (push-ps lr)
+  (b-and-l :%key)
+  (pop-ps lr)
   (teq tmp-1 #\\)
   (beq :skip-comment)
   (teq tmp-1 #\space)
@@ -431,20 +437,25 @@
   
   :search-word-end
   (strb tmp-1 (tmp-2) 1) ;; put char in word-buffer and increment
-  (bl :%key)
+  (stmfd sp! (tmp-2 tmp-3 lr))
+  (b-and-l :%key)
+  (ldmfd sp! (tmp-2 tmp-3 lr))
   (teq tmp-1 #\space)
   (bne :search-word-end)
 
   (sub tmp-2 tmp-2 tmp-3) ;; determine word lenght
+  (mov pc lr)             ;; and return
   
   :skip-comment
-  (bl :%key)
-  (teq #\newline)
+  (push-ps lr)
+  (b-and-l :%key)
+  (pop-ps lr)
+  (teq tmp-1 #\newline)
   (bne :skip-comment)
   (beq :%word)
 
   :word-buffer
-  (byte 32)
+  (space 32)
   pool)
 
 
