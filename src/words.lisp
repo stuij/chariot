@@ -111,9 +111,6 @@
   (str tmp-1 (sp 4))
   (push-ps tmp-1))
 
-;; perhaps todo: swap, rot, -rot, etc are perhaps better (faster) served with
-;; multiple register load and/or stores. we however might need
-;; some boundschecking later, and so a macro, and so I'm lazy
 (defcode swap ()
   (pop-ps tmp-1)
   (pop-ps tmp-2)
@@ -398,7 +395,7 @@
   (bge :get-input)       ;; get some more input
   (ldrb tmp-1 (tmp-2) 1) ;; otherwise read byte and increment curr-key
   (str tmp-2 :curr-key)  ;; store curr key back in mem location
-  (mov pc lr) ;; and branch back to caller
+  (mov pc lr)            ;; and branch back to caller
   
   :get-input
   (b :get-input)
@@ -491,7 +488,7 @@
   (subs tmp-3 tmp-3 1)
   (bpl :loop-for-digits) ;; if more digits loop for them
   (pop-ps tmp-1) ;; otherwise we're stuck with only a '-' which is no digit at all
-  (mov lr pc)     ;; and return
+  (mov lr pc)    ;; and return
 
   :loop-for-digits
   (ldrb tmp-1 (tmp-4) 1)
@@ -501,9 +498,9 @@
   (blt :wrap-up-nr) ;; aka error
   (cmp tmp-1 10)    ;; check if lower than '9'
   (blt :base-overflow-p) ;; if so, it's a nr between 0 and 9 check for base overflow
-  (subs tmp-1 tmp-1 17) ;; check if lower than 'A'
-  (blt :wrap-up-nr)     ;; aka error
-  (cmp tmp-1 26)        ;; check if nr is in range 'A'-'Z'
+  (subs tmp-1 tmp-1 17)  ;; check if lower than 'A'
+  (blt :wrap-up-nr)      ;; aka error
+  (cmp tmp-1 26)         ;; check if nr is in range 'A'-'Z'
   (addlt tmp-1 tmp-1 10) ;; if so add 10
   (blt :add-to-nr)       ;; and branch to overflow
   (subs tmp-1 tmp-1 32)  ;; otherwise add 26 plus 6 to get to 'a'-'z'
@@ -528,4 +525,61 @@
   :return-nr
   (mov pc lr)
     
+  pool)
+
+
+(defcode find ()
+  (bkpt 1)
+  (pop-ps tmp-1) ;; length
+  (pop-ps tmp-2) ;; address
+  (b-and-l :%find)
+  (push-ps tmp-3)) ;; address of dictionary entry or 0
+
+(def-asm-fn %find
+  (ldr tmp-3 (address :tmp-latest-var))
+  (ldr tmp-3 (tmp-3))
+
+  :find-try-again
+  (tst tmp-3 tmp-3) ;; lastest is 0?
+  (beq :word-not-found)
+
+  ;; check if words are te same
+  ;; first their length
+  (ldrb tmp-4 (tmp-3 4))
+  (mov tmp-5 (ea (and (logior hidden-flag lenmask-flag))))
+  (and tmp-4 tmp-4 tmp-5)
+  (teq tmp-4 tmp-1)
+  (bne :next-word) ;; not same length or hidden, go to next word
+
+  ;; if their lenght is the same, check the individual characters
+  ;; tmp-1 = countdown
+  ;; tmp-2 = address control string
+  ;; tmp-3 = address link string
+  ;; tmp-4 = char control string
+  ;; tmp-5 = char link string
+  (stmfd sp! (tmp-1 tmp-2 tmp-3)) 
+  (add tmp-3 tmp-3 5) ;; setup address control string correctly
+  (sub tmp-1 tmp-1 1)
+  
+  :word-match-loop
+  (ldrb tmp-4 (tmp-2) 1)
+  (ldrb tmp-5 (tmp-3) 1)
+  (teq tmp-4 tmp-5)
+  (bne :restore-regs-and-next)
+  (subs tmp-1 tmp-1 1)
+  (bpl :word-match-loop)
+
+  (ldmfd sp! (tmp-1 tmp-2 tmp-3))
+  (mov pc lr)
+  
+  :restore-regs-and-next
+  (ldmfd sp! (tmp-1 tmp-2 tmp-3))
+
+  :next-word
+  (ldr tmp-3 (tmp-3)) ;; go to next word in link
+  (b :find-try-again)
+  
+  :word-not-found
+  (mov pc lr)
+
   pool)
