@@ -133,6 +133,11 @@
   (ldr w (w))      ;; load pfa/codeword or assembly of that next word
   (mov pc w))      ;; branch to it
 
+;; to circumvent no$gba problems
+(def-asm-macro b-and-l (label)
+  `((mv pc lr)
+    (b ,label)))
+
 (def-asm-fn docol
   (push-rs ip)
   (add w w 4) ;; w already points to codeword of word thanks to next. Increment to point to first word in definition
