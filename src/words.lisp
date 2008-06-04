@@ -464,13 +464,13 @@
 (defcode number ()
   (pop-ps tmp-3) ;; length of string
   (pop-ps tmp-4) ;; start of string
-  (bl :%number)
-  (push tmp-2)   ;; parsed nr
-  (push tmp-3))  ;; nr of unparsed chars (0 = error)
+  (b-and-l :%number)
+  (push-ps tmp-2)   ;; parsed nr
+  (push-ps tmp-3))  ;; nr of unparsed chars (0 = error)
 
 (def-asm-fn %number
   (mov tmp-1 1)
-  (mov tmp-2 1)
+  (mov tmp-2 0)
 
   (tst tmp-3 tmp-3) ;; check if string length is 0
   (beq :return-nr)
@@ -486,45 +486,42 @@
   (bne :convert-to-nr)
 
   (pop-ps tmp-1)    ;; take away positive indicator
-  (mov tmp-1 0)     ;; turns out nr is negative
-  (push-ps tmp-1)   ;; put negative indicator on stack
+  (push-ps tmp-2)   ;; put negative indicator on stack
 
   (subs tmp-3 tmp-3 1)
-  (bpi :loop-min-mult) ;; if more digits loop for them
+  (bpl :loop-for-digits) ;; if more digits loop for them
   (pop-ps tmp-1) ;; otherwise we're stuck with only a '-' which is no digit at all
-  (mv lr pc)     ;; and return
+  (mov lr pc)     ;; and return
 
   :loop-for-digits
-  (mul tmp-2 tmp-2 tmp-5) ;; tmp-2 (*= tmp-2 base), so shift nr, sort of
-
-  :loop-min-mult
   (ldrb tmp-1 (tmp-4) 1)
   
   :convert-to-nr
   (subs tmp-1 tmp-1 #\0)
   (blt :wrap-up-nr) ;; aka error
   (cmp tmp-1 10)    ;; check if lower than '9'
-  (blt :base-overflow-p)
+  (blt :base-overflow-p) ;; if so, it's a nr between 0 and 9 check for base overflow
   (subs tmp-1 tmp-1 17) ;; check if lower than 'A'
   (blt :wrap-up-nr)     ;; aka error
   (cmp tmp-1 26)        ;; check if nr is in range 'A'-'Z'
   (addlt tmp-1 tmp-1 10) ;; if so add 10
   (blt :add-to-nr)       ;; and branch to overflow
-  (subs tmp-1 tmp-1 33)  ;; otherwise add 26 plus 7 to get to 'a'-'z'
+  (subs tmp-1 tmp-1 32)  ;; otherwise add 26 plus 6 to get to 'a'-'z'
   (blt :wrap-up-nr)      ;; lower than that is error
   (add tmp-1 tmp-1 10) ;; otherwise leave it up to base-overflow to see if we went over 'z'
   
   :base-overflow-p
-  (cmp tmp-5 tmp-1) ;; compare nr to base
+  (cmp tmp-1 tmp-5) ;; compare nr to base
   (bge :wrap-up-nr) ;; to big? error
 
   :add-to-nr
+  (mul tmp-2 tmp-2 tmp-5) ;; tmp-2 (*= tmp-2 base), so shift nr, sort of
   (add tmp-2 tmp-2 tmp-1)
   (subs tmp-3 tmp-3 1)
   (bgt :loop-for-digits)
   
   :wrap-up-nr ;; done, negate nr and get out of here
-  (pop-rs tmp-5)
+  (pop-ps tmp-5)
   (tst tmp-5 tmp-5)
   (rsbeq tmp-2 tmp-2 0)
 
