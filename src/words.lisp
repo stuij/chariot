@@ -569,8 +569,7 @@
   ;; check if words are te same
   ;; first their length
   (ldrb tmp-4 (tmp-3 4))
-  (mov tmp-5 (ea (and (logior hidden-flag lenmask-flag))))
-  (and tmp-4 tmp-4 tmp-5)
+  (and tmp-4 tmp-4 (ea (and (logior *hidden-flag* *lenmask-flag*))))
   (teq tmp-4 tmp-1)
   (bne :next-word) ;; not same length or hidden, go to next word
 
@@ -613,15 +612,13 @@
   (push-ps tmp-1))
 
 (def-asm-fn %>cfa
-  (add tmp-1 tmp-1 4) ;; skip past link word
+  (add tmp-1 tmp-1 4)    ;; skip past link word
   (ldrb tmp-2 (tmp-1) 1) ;; load and skip past length/flags byte
-  (mov tmp-3 lenmask-flag) ;; just the
-  (and tmp-2 tmp-2 tmp-3) ;; length
-  (add tmp-1 tmp-1 tmp-2) ;; and skip past
+  (and tmp-2 tmp-2 *lenmask-flag*) ;; length
+  (add tmp-1 tmp-1 tmp-2)        ;; and skip past
   ;; word align
-  (mvn tmp-3 3)
   (add tmp-1 tmp-1 3)
-  (and tmp-1 tmp-1 tmp-3)
+  (bic tmp-1 tmp-1 3)
   ;; and return
   (mov pc lr))
 
