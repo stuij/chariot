@@ -19,7 +19,7 @@
        (setf (gethash ,word-name *forth-words*) (cons ,label ,link-label))
        (def-asm-fn ,(intern (symbol-name link-label))
          (word (ia link))
-         (byte ,(+ flags word-length))
+         (byte (ea (+ ,flags ,word-length)))
          (string ,word-name)
          align
          ,label
