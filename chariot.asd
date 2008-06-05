@@ -17,5 +17,6 @@
     ((:module :src
               :components
               ((:file "packages")
-               (:file "start" :depends-on ("packages"))
+               (:file "config" :depends-on ("packages"))
+               (:file "start" :depends-on ("config"))
                (:file "words" :depends-on ("start"))))))
