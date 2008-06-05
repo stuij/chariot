@@ -36,6 +36,7 @@
 (defparameter *ps-base* (+ *base-address* #x10000))
 (defparameter *tib-base* (+ *ps-base* #x1000))
 (defparameter *rs-base* (+ *tib-base* #x4000))
-(defvar imm-flag #x80)
-(defvar hidden-flag #x20)
-(defvar lenmask-flag #x1f)
+
+(defvar *imm-flag* #x80)
+(defvar *hidden-flag* #x20)
+(defvar *lenmask-flag* #x1f)

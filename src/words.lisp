@@ -79,9 +79,9 @@
 ;; constants
 (def-forth-const version () 1)
 (def-forth-const docol () (address :%docol))
-(def-forth-const imm-flag () imm-flag)
-(def-forth-const hidden-flag () hidden-flag)
-(def-forth-const lenmask-flag () hidden-flag)
+(def-forth-const imm-flag () *imm-flag*)
+(def-forth-const hidden-flag () *hidden-flag*)
+(def-forth-const lenmask-flag () *lenmask-flag*)
 
 
 ;; cool functions
