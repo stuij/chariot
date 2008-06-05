@@ -43,7 +43,8 @@
        (word (address ,code-label))
        ,code-label
        ,@code
-       next)))
+       next
+       pool)))
 
 (defmacro def-forth-var (name more-params &optional (val 0))
   (let* ((label (intern (symbol-name name) :keyword))
