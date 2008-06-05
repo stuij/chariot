@@ -81,6 +81,8 @@
 
 ;; constants
 (def-forth-const version () 1)
+(def-forth-const rs-base () *rs-base*)
+(def-forth-const ps-base () *ps-base*)
 (def-forth-const docol () (address :%docol))
 (def-forth-const imm-flag () *imm-flag*)
 (def-forth-const hidden-flag () *hidden-flag*)
