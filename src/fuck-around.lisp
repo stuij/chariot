@@ -40,14 +40,15 @@
    (add tmp-2 tmp-2 4) ;; skip past the eternal loop that is now the arm7 code. this is a hack 
    (str tmp-2 (tmp-1))
 
-   ;; preparing the stack
+   
+   ;; preparing the stack for testing functionality
    (ldr tmp-2 (address :tib-base))
    (push-ps tmp-2)
 
    ;; put ip at beginning of simulated word
    (ldr ip (address :words))
 
-   (b :init-break) ;; first we jump over non-instructions
+   (b :start-forth) ;; first we jump over non-instructions
 
    
    ;; SETUP DATA
@@ -58,19 +59,19 @@
 
    (word (address :word))
    (word (address :find))
+   (word (address :>dfa))
    (word (address :eternal))
 
    ;; temporary hackish tib-base
    :tib-base
-   "              \\eternal 
-       ETERNAL jumps over the wretched hen, and eats her alive afterwards"
+   "KEY "
    :tib-top
    align
    
    ;; ENTRY POINT
-   :init-break
+   :start-forth
    ;; then we break the debugger JUST before the test-code
-   (bkpt 0)
+   
    next))
 
 (set-asm-init-routines
@@ -78,5 +79,4 @@
    ;; var to hold the last link address in the word chain
    (def-asm-param link 0)
 
-   (bkpt 0)
    (b :init-at-end)))
