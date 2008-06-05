@@ -26,7 +26,7 @@
          ,@body
          (set-asm-param link (address ,link-label))))))
 
-(defmacro defword (name more-params &body words)
+(defmacro defword (name (&key (flags 0) forth-name) &body words)
   (let ((word-list (loop for word in words
                       collect (etypecase word 
                                (symbol `(word (address ,(intern (symbol-name word) :keyword))))
@@ -36,21 +36,21 @@
        ,@word-list
        (word (address :exit)))))
 
-(defmacro defcode (name more-params &body code)
+(defmacro defcode (name (&key (flags 0) forth-name) &body code)
   (let* ((label (intern (symbol-name name) :keyword))
          (code-label (intern (symbol-name (concat-symbol label "-CODE")) :keyword)))
-    `(defword-builder ,name ,more-params
+    `(defword-builder ,name (:flags ,flags :forth-name ,forth-name)
        (word (address ,code-label))
        ,code-label
        ,@code
        next
        pool)))
 
-(defmacro def-forth-var (name more-params &optional (val 0))
+(defmacro def-forth-var (name (&key (flags 0) forth-name) &optional (val 0))
   (let* ((label (intern (symbol-name name) :keyword))
          (code-label (intern (symbol-name (concat-symbol label "-CODE")) :keyword))
          (var-label (intern (symbol-name (concat-symbol label "-VAR")) :keyword)))
-    `(defword-builder ,name ,more-params
+    `(defword-builder ,name (:flags ,flags :forth-name ,forth-name)
        (word (address ,code-label))
        ,code-label
        (ldr tmp-1 (address ,var-label))
@@ -60,11 +60,11 @@
        (word ,val)
        pool)))
 
-(defmacro def-forth-const (name more-params val)
+(defmacro def-forth-const (name (&key (flags 0) forth-name) val)
   (let* ((label (intern (symbol-name name) :keyword))
          (code-label (intern (symbol-name (concat-symbol label "-CODE")) :keyword))
          (var-label (intern (symbol-name (concat-symbol label "-VAR")) :keyword)))
-    `(defword-builder ,name ,more-params
+    `(defword-builder ,name (:flags ,flags :forth-name ,forth-name)
        (word (address ,code-label))
        ,code-label
        (ldr tmp-1 ,var-label)
