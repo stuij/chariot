@@ -60,8 +60,8 @@
 ;; general asm
 ;; macros
 (def-asm-macro-lite next
-  (ldr w (ip) 4)   ;; load cfa of next word in w and point ip to next word
-  (ldr w (w))      ;; load pfa/codeword or assembly of that next word
+  (ldr tmp-5 (ip) 4)   ;; load cfa of next word in w and point ip to next word
+  (ldr w (tmp-5))      ;; load pfa/codeword or assembly of that next word
   (mov pc w))      ;; branch to it
 
 (def-asm-macro push-rs (reg &key cond)
@@ -98,8 +98,8 @@
     (b ,label)))
 
 ;; fns
-(def-asm-fn docol
+(def-asm-fn %docol
   (push-rs ip)
-  (add w w 4) ;; w already points to codeword of word thanks to next. Increment to point to first word in definition
+  (add w tmp-5 4) ;; increment to point to first word in definition (to which tmp-5 still references from the previous next)
   (mov ip w)  ;; put word in ip so we can call next on it
   next)
