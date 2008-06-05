@@ -531,15 +531,16 @@
   pool)
 
 
+;; finding words and word offsets
+
 (defcode find ()
-  (bkpt 1)
   (pop-ps tmp-1) ;; length
   (pop-ps tmp-2) ;; address
   (b-and-l :%find)
   (push-ps tmp-3)) ;; address of dictionary entry or 0
 
 (def-asm-fn %find
-  (ldr tmp-3 (address :tmp-latest-var))
+  (ldr tmp-3 (address :latest-var))
   (ldr tmp-3 (tmp-3))
 
   :find-try-again
