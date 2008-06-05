@@ -17,6 +17,14 @@
           liards::*arm7-bin*
           "fuck-around.nds")
 
+(defcode break ()
+  (bkpt 0))
+
+(defword test-word ()
+  ;; word find break >dfa
+  4 ;; lit will be automatically prepended
+  )
+
 (set-asm-final-routines
   (emit-asm
 
@@ -57,11 +65,10 @@
    ;; simulating part of a word
    :words
 
-   (word (address :word))
-   (word (address :find))
-   (word (address :>dfa))
+   (word (address :test-word))
    (word (address :eternal))
 
+   
    ;; temporary hackish tib-base
    :tib-base
    "KEY "
