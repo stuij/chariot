@@ -30,7 +30,7 @@
   (let ((word-list (loop for word in words
                       collect `(word (address ,(intern (symbol-name word) :keyword))))))
     `(defword-builder ,name ,more-params
-       (word (address :docol))
+       (word (address :%docol))
        ,@word-list
        (word (address :exit)))))
 
@@ -78,7 +78,7 @@
 
 ;; constants
 (def-forth-const version () 1)
-(def-forth-const docol () (address :docol))
+(def-forth-const docol () (address :%docol))
 (def-forth-const imm-flag () imm-flag)
 (def-forth-const hidden-flag () hidden-flag)
 (def-forth-const lenmask-flag () hidden-flag)
@@ -537,7 +537,8 @@
   (pop-ps tmp-1) ;; length
   (pop-ps tmp-2) ;; address
   (b-and-l :%find)
-  (push-ps tmp-3)) ;; address of dictionary entry or 0
+  (push-ps tmp-3)
+  (bkpt 0)) ;; address of dictionary entry or 0
 
 (def-asm-fn %find
   (ldr tmp-3 (address :latest-var))
@@ -587,3 +588,25 @@
   (mov pc lr)
 
   pool)
+
+(defcode >cfa ()
+  (pop-ps tmp-1)
+  (b-and-l :%>cfa)
+  (push-ps tmp-1))
+
+(def-asm-fn %>cfa
+  (add tmp-1 tmp-1 4) ;; skip past link word
+  (ldrb tmp-2 (tmp-1) 1) ;; load and skip past length/flags byte
+  (mov tmp-3 lenmask-flag) ;; just the
+  (and tmp-2 tmp-2 tmp-3) ;; length
+  (add tmp-1 tmp-1 tmp-2) ;; and skip past
+  ;; word align
+  (mvn tmp-3 3)
+  (add tmp-1 tmp-1 3)
+  (and tmp-1 tmp-1 tmp-3)
+  ;; and return
+  (mov pc lr))
+
+(defword >dfa ()
+  >cfa
+  4+)
