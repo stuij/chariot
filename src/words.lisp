@@ -386,7 +386,8 @@
 
 
 
-;; in- and output
+;; input
+;; TODO: implement get-input
 (defcode key ()
   (b-and-l :%key)
   (push-ps tmp-1))
@@ -412,11 +413,6 @@
   (word (address :tib-base))
   :buff-top
   (word (address :tib-top)))
-
-(defcode emit ()
-  ;; emits a byte to output, where-ever that is.
-  ;; is going to be implemented once I've got more of a clue
-  )
 
 (defcode word ()
   (b-and-l :%word)
@@ -458,6 +454,29 @@
   (space 32)
   pool)
 
+
+
+;; output
+;; not yet implemented
+
+(defcode emit ()
+  ;; emits a byte to output, where-ever that is.
+  ;; is going to be implemented once I've got more of a clue
+  )
+
+;; literal strings
+(defcode litstring ()
+  (ldr tmp-1 (ip) 4)
+  (push-ps ip)
+  (push-ps tmp-1)
+  (add ip ip tmp-1)
+  (add ip ip 3)
+  (bic ip ip 3))
+
+(defcode tell ()
+  ;; prints a string, but how?
+  ;; I'll look into it when concidering general output
+  )
 
 
 ;; parsing numbers
@@ -608,3 +627,128 @@
 
 (defword >dfa ()
   >cfa 4+)
+
+
+;; compiling!
+(defcode create ()
+  (pop-ps tmp-1) ;; length of name
+  (pop-ps tmp-2) ;; address of name
+
+  (ldr tmp-3 (address :here-var))
+  (ldr tmp-3 (tmp-3)) ;; load 'here'
+  (push-ps tmp-3)     ;; save a copy for later
+  
+  (ldr tmp-4 (address :latest-var))
+  (push-ps tmp-4)     ;; save for later
+  (ldr tmp-4 (tmp-4)) ;; load 'latest'
+
+  (str tmp-4 (tmp-3) 4) ;; store link
+
+  (strb tmp-4 (tmp-1) 1) ;; store lenght byte (flags are all 0)
+
+  ;; store name
+  (sub tmp-1 tmp-1 2)
+
+  :store-name-loop
+  (ldrb tmp-5 (tmp-2) 1)
+  (strb tmp-5 (tmp-3) 1)
+  (subs tmp-1 tmp-1 1)
+  (bpl :store-name-loop)
+
+  ;; align
+  (add tmp-3 tmp-3 3) ;; to next
+  (bic tmp-3 tmp-3 3) ;; 4-byte boundry
+
+  ;; save new 'here' and 'latest'
+  ;; not super opcode-efficient, but clearer than camming all the logic in
+  ;; the previous load here/latest dance
+
+  ;; get the 'here' and 'latest' store addresses back
+  (ldr tmp-2 (address :here-var))
+  (pop-ps tmp-4)
+  (pop-ps tmp-5)
+  ;; now the relevant register situation looks like this
+  ;; tmp-2 = here-var address
+  ;; tmp-3 = now here
+  ;; tmp-4 = latest-var address
+  ;; tmp-5 = starting here pointer address, now link address
+  
+  ;; so lets store the new values
+  (str tmp-3 (tmp-2))
+  (str tmp-5 (tmp-4)))
+
+(defcode comma (:forth-name ",")
+  (pop-ps tmp-1)
+  (b-and-l :%comma))
+
+(def-asm-fn %comma
+  (ldr tmp-2 (address :here-var))
+  (ldr tmp-3 (tmp-2)) ;; actual address of here
+  (str tmp-1 (tmp-3) 4)
+  (str tmp-3 (tmp-2)) ;; store new incrememted next free byte back in here-var
+  (mov pc lr)
+  pool)
+
+;; could also give names [ and ] on lisp side
+;; but parenscript hates that
+(defcode lbrac (:forth-name "[" :flags *imm-flag*)
+  (ldr tmp-1 (address :state-var))
+  (mov tmp-2 0)
+  (str tmp-2 (tmp-1)))
+
+(defcode rbrac (:forth-name "]")
+  (ldr tmp-1 (address :state-var))
+  (mov tmp-2 1)
+  (str tmp-2 (tmp-1)))
+
+(defword colon (:forth-name ":")
+  word create
+  lit docol comma
+  latest @ hidden
+  rbrac)
+
+(defword semicolon (:forth-name ";" :flags *imm-flag*)
+  lit exit comma
+  latest @ hidden
+  lbrac)
+
+(defcode immediate (:flags *imm-flag*)
+  (ldr  tmp-1 (address :latest-var))
+  (add  tmp-1 tmp-1 4)
+  (ldrb tmp-2 (tmp-1))
+  (eor  tmp-2 tmp-2 *imm-flag*)
+  (strb tmp-2 (tmp-1)))
+
+(defcode hidden ()
+  (pop-ps tmp-1)
+  (add  tmp-1 tmp-1 4)
+  (ldrb tmp-2 (tmp-1))
+  (eor  tmp-2 tmp-2 *hidden-flag*)
+  (strb tmp-2 (tmp-1)))
+
+(defword hide ()
+  word find hidden)
+
+(defcode tick (:forth-name "'")
+  ;; works only in compiled code
+  ;; and what's the difference between this and lit anyway???
+  ;; should try in word form, as immediate, with: word find >cfa (push on stack)
+  (ldr tmp-1 (ip) 4)
+  (push-ps tmp-1))
+
+
+;; branching
+(defcode branch ()
+  (ldr tmp-1 (ip) 4)
+  (add ip ip tmp-1))
+
+(defcode 0branch ()
+  (pop-ps tmp-1)
+  (tst tmp-1 tmp-1)
+  (b :branch-code)
+  (add ip ip 4))
+
+
+;; interpreter!!
+(defword quit ()
+  rs-base rsp! interpret branch -8)
