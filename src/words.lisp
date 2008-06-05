@@ -92,8 +92,8 @@
   (pop-rs ip))
 
 (defcode lit ()
-  (ldr ip (ip) 4)
-  (push-ps ip))
+  (ldr tmp-1 (ip) 4)
+  (push-ps tmp-1))
 
 (defcode eternal ()
   :eternal-loop
@@ -540,8 +540,7 @@
   (pop-ps tmp-1) ;; length
   (pop-ps tmp-2) ;; address
   (b-and-l :%find)
-  (push-ps tmp-3)
-  (bkpt 0)) ;; address of dictionary entry or 0
+  (push-ps tmp-3)) ;; address of dictionary entry or 0
 
 (def-asm-fn %find
   (ldr tmp-3 (address :latest-var))
@@ -611,5 +610,4 @@
   (mov pc lr))
 
 (defword >dfa ()
-  >cfa
-  4+)
+  >cfa 4+)
