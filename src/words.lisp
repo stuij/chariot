@@ -28,8 +28,10 @@
 
 (defmacro defword (name more-params &body words)
   (let ((word-list (loop for word in words
-                      collect `(word (address ,(intern (symbol-name word) :keyword))))))
-    `(defword-builder ,name ,more-params
+                      collect (etypecase word 
+                               (symbol `(word (address ,(intern (symbol-name word) :keyword))))
+                               (number `(word ,word))))))
+    `(defword-builder ,name (:flags ,flags :forth-name ,forth-name)
        (word (address :%docol))
        ,@word-list
        (word (address :exit)))))
