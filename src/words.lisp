@@ -421,8 +421,8 @@
 
 (defcode word ()
   (b-and-l :%word)
-  (push-ps tmp-3)  ;; word base address
-  (push-ps tmp-2)) ;; word length
+  (push-ps tmp-2)  ;; word base address
+  (push-ps tmp-1)) ;; word length
 
 (def-asm-fn %word
   (push-ps lr)
@@ -437,14 +437,14 @@
   (mov tmp-3 tmp-2)
   
   :search-word-end
-  (strb tmp-1 (tmp-2) 1) ;; put char in word-buffer and increment
-  (stmfd sp! (tmp-2 tmp-3 lr))
+  (strb tmp-1 (tmp-3) 1) ;; put char in word-buffer and increment
+  (stmfd sp! (tmp-3 tmp-2 lr))
   (b-and-l :%key)
-  (ldmfd sp! (tmp-2 tmp-3 lr))
+  (ldmfd sp! (tmp-3 tmp-2 lr))
   (teq tmp-1 #\space)
   (bne :search-word-end)
 
-  (sub tmp-2 tmp-2 tmp-3) ;; determine word lenght
+  (sub tmp-1 tmp-3 tmp-2) ;; determine word lenght
   (mov pc lr)             ;; and return
   
   :skip-comment
