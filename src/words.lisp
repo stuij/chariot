@@ -754,3 +754,89 @@
 ;; interpreter!!
 (defword quit ()
   rs-base rsp! interpret branch -8)
+
+(defcode interpret ()
+  (b-and-l :%word)
+  ;; tmp-1 = word length
+  ;; tmp-2 = word base address
+  
+  (mov tmp-3 0)
+  (str tmp-3 :litp)
+  (b-and-l :%find)
+  
+  (tst tmp-3 tmp-3) ;; testing tmp-3 specifically for literal is purely accidental
+  (beq :do-literal)
+  ;; word is in dictionary
+  (b-and-l :%>cfa)
+  
+  ;; cfa of word should now be in tmp-1
+  (ldrb tmp-3 (tmp-3 4))
+  (ands tmp-3 tmp-3 *imm-flag*)
+  (bne :execute-it) ;; flag set? then imm! start executing! On the double!
+  (beq :compiling-or-executing) ;; eq/ne tests seem inverted to the non-trained
+  ;; assembly programmer, but seems to be on level
+
+  :do-literal
+  (mov tmp-3 1)
+  (str tmp-3 :litp)
+  ;; values in tmp-1 and tmp-2 were preserved
+  (b-and-l :%number)
+  ;; tmp-1 = amount of not parsed chars
+  ;; tmp-2 is still address of nr
+  ;; tmp-4 is parsed nr
+  (tst tmp-1 tmp-1) ;; see if tmp
+  (bne :interpret-error)
+  ;; otherwise put code address of lit in address expected
+  (ldr tmp-1 (address :lit))
+  
+  :compiling-or-executing
+  ;; tmp-2, tmp-3 are now free
+  ;; tmp-1 holds either the lit address or the word address
+  ;; tmp-4 holds the number value if word was a nr
+  (ldr tmp-3 (address :state-var))
+  (ldr tmp-3 (tmp-3))
+  (tst tmp-3 tmp-3) ;; if state is 0, we're in interpret mode,
+  (beq :execute-it) ;; so execute
+  ;; otherwise we're compiling, so compile the word in tmp-1
+  (b-and-l :%comma)
+  ;; and check if we have to compile a nr as well
+  (ldr tmp-3 :litp)
+  (tst tmp-3 tmp-3)
+  (movne tmp-1 tmp-4)  ;; if so compile
+  (b-and-l-ne :%comma) ;; the nr as well
+  next
+  
+  :execute-it
+  (ldr tmp-3 :litp)  ;; if we're dealing
+  (tst tmp-3 tmp-3)  ;; with a literal,
+  (bne :push-literal-on-stack) ;; push it on the stack
+
+  ;; otherwise jump to it
+  (mov tmp-5 tmp-1) ;; line up tmp-5 to point to cfa, in simulation of next call. needed if next word is a high level word
+  (ldr tmp-1 (tmp-1))
+  (mov pc tmp-1) ;; which will call next, which will bring us back to 'quit'
+
+  :push-literal-on-stack
+  (push-ps tmp-4)
+  next
+  
+  "interpret-error"
+  align
+  :interpret-error
+  ;; once we have output, we'll implement something useful
+  (b :interpret-error)
+  
+  :litp
+  (word 0))
+
+
+;; misc
+
+;; debugging
+(defcode break ()
+  ;; halts debugger
+  (bkpt 0))
+
+(defcode eternal ()
+  :eternal-loop
+  (b :eternal-loop))
