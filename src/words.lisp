@@ -645,11 +645,10 @@
   (ldr tmp-4 (tmp-4)) ;; load 'latest'
 
   (str tmp-4 (tmp-3) 4) ;; store link
-
-  (strb tmp-4 (tmp-1) 1) ;; store lenght byte (flags are all 0)
+  (strb tmp-1 (tmp-3) 1) ;; store lenght byte (flags are all 0)
 
   ;; store name
-  (sub tmp-1 tmp-1 2)
+  (sub tmp-1 tmp-1 1)
 
   :store-name-loop
   (ldrb tmp-5 (tmp-2) 1)
