@@ -608,12 +608,15 @@
   pool)
 
 (defcode >cfa ()
-  (pop-ps tmp-1)
+  (pop-ps tmp-3)
   (b-and-l :%>cfa)
   (push-ps tmp-1))
 
 (def-asm-fn %>cfa
-  (add tmp-1 tmp-1 4)    ;; skip past link word
+  ;; please don't modify tmp-3. interpret counts on it not changing
+  ;; this might be ugly but saves us a few instructions
+  ;; ungh! premature optimization... assembly fucks with your head
+  (add tmp-1 tmp-3 4)    ;; skip past link word
   (ldrb tmp-2 (tmp-1) 1) ;; load and skip past length/flags byte
   (and tmp-2 tmp-2 *lenmask-flag*) ;; length
   (add tmp-1 tmp-1 tmp-2)          ;; and skip past
@@ -726,8 +729,8 @@
 
 ;; the king and queen of forth word compiling
 (defword colon (:forth-name ":")
-  word break create
-  lit docol comma
+  word create
+  docol comma
   latest @ hidden
   rbrac)
 
