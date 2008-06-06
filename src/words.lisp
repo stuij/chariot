@@ -486,68 +486,68 @@
 
 ;; parsing numbers
 (defcode number ()
-  (pop-ps tmp-3) ;; length of string
-  (pop-ps tmp-4) ;; start of string
+  (pop-ps tmp-1) ;; length of string
+  (pop-ps tmp-2) ;; start of string
   (b-and-l :%number)
-  (push-ps tmp-2)   ;; parsed nr
-  (push-ps tmp-3))  ;; nr of unparsed chars (0 = error)
+  (push-ps tmp-4)   ;; parsed nr
+  (push-ps tmp-1))  ;; nr of unparsed chars (0 = error)
 
 (def-asm-fn %number
-  (mov tmp-1 1)
-  (mov tmp-2 0)
+  (mov tmp-3 1)
+  (mov tmp-4 0)
 
-  (tst tmp-3 tmp-3) ;; check if string length is 0
+  (tst tmp-1 tmp-1) ;; check if string length is 0
   (beq :return-nr)
 
   (ldr tmp-5 (address :base-var)) ;; load the
   (ldr tmp-5 (tmp-5))             ;; current base
   
   ;; check if first char is #\-
-  (push-ps tmp-1) ;; put 1 on stack indicating positive
+  (push-ps tmp-3) ;; put 1 on stack indicating positive
   
-  (ldrb tmp-1 (tmp-4) 1) ;; load char and increment
-  (teq tmp-1 #\-)
+  (ldrb tmp-3 (tmp-2) 1) ;; load char and increment
+  (teq tmp-3 #\-)
   (bne :convert-to-nr)
 
-  (pop-ps tmp-1)    ;; take away positive indicator
-  (push-ps tmp-2)   ;; put negative indicator on stack
+  (pop-ps tmp-3)    ;; take away positive indicator
+  (push-ps tmp-4)   ;; put negative indicator on stack
 
-  (subs tmp-3 tmp-3 1)
+  (subs tmp-1 tmp-1 1)
   (bpl :loop-for-digits) ;; if more digits loop for them
-  (pop-ps tmp-1) ;; otherwise we're stuck with only a '-' which is no digit at all
+  (pop-ps tmp-3) ;; otherwise we're stuck with only a '-' which is no digit at all
   (mov lr pc)    ;; and return
 
   :loop-for-digits
-  (ldrb tmp-1 (tmp-4) 1)
+  (ldrb tmp-3 (tmp-2) 1)
   
   :convert-to-nr
-  (subs tmp-1 tmp-1 #\0)
+  (subs tmp-3 tmp-3 #\0)
   (blt :wrap-up-nr) ;; aka error
-  (cmp tmp-1 10)    ;; check if lower than '9'
+  (cmp tmp-3 10)    ;; check if lower than '9'
   (blt :base-overflow-p) ;; if so, it's a nr between 0 and 9 check for base overflow
-  (subs tmp-1 tmp-1 17)  ;; check if lower than 'A'
+  (subs tmp-3 tmp-3 17)  ;; check if lower than 'A'
   (blt :wrap-up-nr)      ;; aka error
-  (cmp tmp-1 26)         ;; check if nr is in range 'A'-'Z'
-  (addlt tmp-1 tmp-1 10) ;; if so add 10
+  (cmp tmp-3 26)         ;; check if nr is in range 'A'-'Z'
+  (addlt tmp-3 tmp-3 10) ;; if so add 10
   (blt :add-to-nr)       ;; and branch to overflow
-  (subs tmp-1 tmp-1 32)  ;; otherwise add 26 plus 6 to get to 'a'-'z'
+  (subs tmp-3 tmp-3 32)  ;; otherwise add 26 plus 6 to get to 'a'-'z'
   (blt :wrap-up-nr)      ;; lower than that is error
-  (add tmp-1 tmp-1 10) ;; otherwise leave it up to base-overflow to see if we went over 'z'
+  (add tmp-3 tmp-3 10) ;; otherwise leave it up to base-overflow to see if we went over 'z'
   
   :base-overflow-p
-  (cmp tmp-1 tmp-5) ;; compare nr to base
+  (cmp tmp-3 tmp-5) ;; compare nr to base
   (bge :wrap-up-nr) ;; to big? error
 
   :add-to-nr
-  (mul tmp-2 tmp-2 tmp-5) ;; tmp-2 (*= tmp-2 base), so shift nr, sort of
-  (add tmp-2 tmp-2 tmp-1)
-  (subs tmp-3 tmp-3 1)
+  (mul tmp-4 tmp-4 tmp-5) ;; tmp-4 (*= tmp-4 base), so shift nr, sort of
+  (add tmp-4 tmp-4 tmp-3)
+  (subs tmp-1 tmp-1 1)
   (bgt :loop-for-digits)
   
   :wrap-up-nr ;; done, negate nr and get out of here
   (pop-ps tmp-5)
   (tst tmp-5 tmp-5)
-  (rsbeq tmp-2 tmp-2 0)
+  (rsbeq tmp-4 tmp-4 0)
 
   :return-nr
   (mov pc lr)
