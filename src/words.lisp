@@ -29,8 +29,8 @@
 (defmacro defword (name (&key (flags 0) forth-name) &body words)
   (let ((word-list (loop for word in words
                       collect (etypecase word 
-                               (symbol `(word (address ,(intern (symbol-name word) :keyword))))
-                               (number `(word ,word))))))
+                                (symbol `(word (address ,(intern (symbol-name word) :keyword))))
+                                (number `(word ,word))))))
     `(defword-builder ,name (:flags ,flags :forth-name ,forth-name)
        (word (address :%docol))
        ,@word-list
@@ -490,7 +490,7 @@
   (pop-ps tmp-2) ;; start of string
   (b-and-l :%number)
   (push-ps tmp-4)   ;; parsed nr
-  (push-ps tmp-1))  ;; nr of unparsed chars (0 = error)
+  (push-ps tmp-1))  ;; nr of unparsed chars (0 = NO error)
 
 (def-asm-fn %number
   (mov tmp-3 1)
@@ -620,7 +620,7 @@
   (add tmp-1 tmp-1 4)    ;; skip past link word
   (ldrb tmp-2 (tmp-1) 1) ;; load and skip past length/flags byte
   (and tmp-2 tmp-2 *lenmask-flag*) ;; length
-  (add tmp-1 tmp-1 tmp-2)        ;; and skip past
+  (add tmp-1 tmp-1 tmp-2)          ;; and skip past
   ;; word align
   (add tmp-1 tmp-1 3)
   (bic tmp-1 tmp-1 3)
@@ -683,6 +683,7 @@
   (b-and-l :%comma))
 
 (def-asm-fn %comma
+  ;; if ya can, don't disturb tmp-4. Interpret expects this
   (ldr tmp-2 (address :here-var))
   (ldr tmp-3 (tmp-2)) ;; actual address of here
   (str tmp-1 (tmp-3) 4)
@@ -695,23 +696,12 @@
 (defcode lbrac (:forth-name "[" :flags *imm-flag*)
   (ldr tmp-1 (address :state-var))
   (mov tmp-2 0)
-  (str tmp-2 (tmp-1)))
+  (str tmp-2 (tmp-1))) ;; get (from immedate mode) into compiling mode
 
 (defcode rbrac (:forth-name "]")
   (ldr tmp-1 (address :state-var))
   (mov tmp-2 1)
-  (str tmp-2 (tmp-1)))
-
-(defword colon (:forth-name ":")
-  word create
-  lit docol comma
-  latest @ hidden
-  rbrac)
-
-(defword semicolon (:forth-name ";" :flags *imm-flag*)
-  lit exit comma
-  latest @ hidden
-  lbrac)
+  (str tmp-2 (tmp-1))) ;; go into immediate mode from compiling mode
 
 (defcode immediate (:flags *imm-flag*)
   (ldr  tmp-1 (address :latest-var))
@@ -738,6 +728,17 @@
   (ldr tmp-1 (ip) 4)
   (push-ps tmp-1))
 
+;; the king and queen of forth word compiling
+(defword colon (:forth-name ":")
+  word break create
+  lit docol comma
+  latest @ hidden
+  rbrac)
+
+(defword semicolon (:forth-name ";" :flags *imm-flag*)
+  lit exit comma
+  latest @ hidden
+  lbrac)
 
 ;; branching
 (defcode branch ()
