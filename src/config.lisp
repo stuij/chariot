@@ -1,5 +1,7 @@
 (in-package :chariot)
 
+(set-armish-string-encoding :latin-1)
+
 ;; TODO: global var should be removed. base addres should only be defined in block.
 (setf *base-address* #x02000000)
 
@@ -40,3 +42,5 @@
 (defvar *imm-flag* #x80)
 (defvar *hidden-flag* #x20)
 (defvar *lenmask-flag* #x1f)
+
+(defparameter *simul-input* ": PLUS-2 2 + ; 2 PLUS-2")
