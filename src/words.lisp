@@ -97,10 +97,6 @@
   (ldr tmp-1 (ip) 4)
   (push-ps tmp-1))
 
-(defcode eternal ()
-  :eternal-loop
-  (b :eternal-loop))
-
 ;; the mundane
 (defcode drop ()
   (pop-ps tmp-1))

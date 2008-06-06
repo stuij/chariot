@@ -17,9 +17,6 @@
           liards::*arm7-bin*
           "fuck-around.nds")
 
-(defcode break ()
-  (bkpt 0))
-
 (defword test-word ()
   ;; word find break >dfa
   4 ;; lit will be automatically prepended
