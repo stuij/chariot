@@ -715,6 +715,7 @@
 
 (defcode immediate (:flags *imm-flag*)
   (ldr  tmp-1 (address :latest-var))
+  (ldr  tmp-1 (tmp-1))
   (add  tmp-1 tmp-1 4)
   (ldrb tmp-2 (tmp-1))
   (eor  tmp-2 tmp-2 *imm-flag*)
