@@ -97,6 +97,10 @@
   `((mov lr pc)
     (b ,label)))
 
+(def-asm-macro b-and-l-ne (label)
+  `((movne lr pc)
+    (bne ,label)))
+
 ;; fns
 (def-asm-fn %docol
   (push-rs ip)
