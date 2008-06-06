@@ -741,13 +741,13 @@
 
 ;; branching
 (defcode branch ()
-  (ldr tmp-1 (ip) 4)
+  (ldr tmp-1 (ip))
   (add ip ip tmp-1))
 
 (defcode 0branch ()
   (pop-ps tmp-1)
   (tst tmp-1 tmp-1)
-  (b :branch-code)
+  (beq :branch-code)
   (add ip ip 4))
 
 
