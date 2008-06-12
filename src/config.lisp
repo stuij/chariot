@@ -35,7 +35,9 @@
   (jr r0)                               ; for referencing user variables
   ) 
 
-(setf *jr* 'r9)               ; because it's r9 in mandel. So completely random.
+(setf *jr* 'r0)               ; because it's r9 in mandel. So completely random.
+
+(setf *base-address* #x02000000)
 
 (defparameter *ps-base* (+ *base-address* #x10000))
 (defparameter *tib-base* (+ *ps-base* #x1000))
