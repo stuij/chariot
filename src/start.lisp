@@ -53,7 +53,21 @@
 ;;   --------------
 
 (in-asm-space chariot)
-(in-block chariot-setup)
+(in-block chariot-core)
+
+;; general asm
+;; macros
+(def-asm-macro-lite next
+  (ldr tmp-5 (ip) 4)   ;; load cfa of next word in w and point ip to next word
+  (ldr w (tmp-5))      ;; load pfa/codeword or assembly of that next word
+  (mov pc w))          ;; branch to it
+
+;; fns
+(def-asm-fn %docol
+  (push-rs ip)
+  (add w tmp-5 4) ;; increment to point to first word in definition (to which tmp-5 still references from the previous next)
+  (mov ip w)      ;; put word in ip so we can call next on it
+  next)
 
 (set-asm-init-routines
   (emit-asm
@@ -110,53 +124,52 @@
    liards::*arm7-bin*
    "fuck-around.nds"))
 
-;; general asm
-;; macros
-(def-asm-macro-lite next
-  (ldr tmp-5 (ip) 4)   ;; load cfa of next word in w and point ip to next word
-  (ldr w (tmp-5))      ;; load pfa/codeword or assembly of that next word
-  (mov pc w))      ;; branch to it
+       ;; SETUP DATA
+       
+       ;; jr reachables
+       (liards::dump-jr-data)
+       align
 
-(def-asm-macro push-rs (reg &key cond)
-  ;; todo: needs bounds checking but can't be bothered with error handling right now
-  (let ((store (if cond
-                   (concat-symbol 'str cond)
-                   'str)))
-    `((,store ,reg (rp -4)!))))
+       pool ;; just to be sure. perhaps the tmp tib becomes to big for ldr to fetch it's data
 
-(def-asm-macro pop-rs (reg &key cond)
-  ;; todo: needs bounds checking but can't be bothered with error handling right now
-  (let ((load (if cond
-                  (concat-symbol 'ldr cond)
-                  'ldr)))
-    `((,load ,reg (rp) 4))))
+       
+       ;; font writing data
+       :char-x-data
+       (bin 8 liards::*char-x-data*)
+       align
+       
+       :char-y-data
+       (bin 8 liards::*char-y-data*)
+       align
 
-(def-asm-macro push-ps (reg &key cond)
-  ;; todo: needs bounds checking but can't be bothered with error handling right now
-  (let ((store (if cond
-                   (concat-symbol 'str cond)
-                   'str)))
-    `((,store ,reg (sp -4)!))))
+       :char-sizes
+       (bin 8 liards::*char-sizes*)
+       align
 
-(def-asm-macro pop-ps (reg &key cond)
-  ;; todo: needs bounds checking but can't be bothered with error handling right now
-  (let ((load (if cond
-                  (concat-symbol 'ldr cond)
-                  'ldr)))
-    `((,load ,reg (sp) 4))))
+       :char-widths
+       (bin 8 liards::*char-widths*)
+       align
 
-;; to circumvent no$gba problems
-(def-asm-macro b-and-l (label)
-  `((mov lr pc)
-    (b ,label)))
+       :char-offsets
+       (bin 32 liards::*char-offsets*)
+       align
 
-(def-asm-macro b-and-l-ne (label)
-  `((movne lr pc)
-    (bne ,label)))
+       
+       ;; start of ip
+       :ip-start
+       (word (address :quit))
 
-;; fns
-(def-asm-fn %docol
-  (push-rs ip)
-  (add w tmp-5 4) ;; increment to point to first word in definition (to which tmp-5 still references from the previous next)
-  (mov ip w)  ;; put word in ip so we can call next on it
-  next)
+       
+       ;; temporary hackish tib-base. For now functions at uninteractive input prompt
+       :tib-base
+       (ea fth-content)
+       " ETERNAL " ;; so we don't have to think about appending a space to get a valid last input word
+       :tib-top
+       align)))
+  
+  (armish::get-asm-space 'chariot)
+  
+  (liards::nds-compile
+   (assemble 'arm9 'arm (emit-arm-fns (armish::get-cluster 'chariot-ds :in 'chariot)))
+   liards::*arm7-bin*
+   "fuck-around.nds"))
