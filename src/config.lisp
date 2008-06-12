@@ -43,4 +43,6 @@
 (defvar *hidden-flag* #x20)
 (defvar *lenmask-flag* #x1f)
 
-(defparameter *simul-input* ": PLUS-2 2 + ; 2 PLUS-2")
+(defparameter *forth-source-dir*
+  (merge-pathnames #p"forth-src" 
+                   (asdf:component-pathname (asdf:find-system :chariot))))

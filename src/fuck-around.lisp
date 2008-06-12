@@ -23,4 +23,4 @@
   ;; lit won't be automatically prepended
   )
 
-(make-eval-forth "7 6 -")
+(make-eval-forth "test.fth")
