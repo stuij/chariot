@@ -5,8 +5,10 @@
 ;; TODO: global var should be removed. base addres should only be defined in block.
 (setf *base-address* #x02000000)
 
-(def-space-n-blocks chariot
-  (chariot-setup :base-address *base-address*))
+(def-space-n-clusters-n-blocks chariot
+  ((chariot-ds :base-address *base-address*
+                 :blocks (chariot-core liards::liards-common liards::liards-writer)))
+  (chariot-core))
 
 ;; forth register aliases
 (defmacro set-fth-regs (&body regs)

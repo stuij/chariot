@@ -1,7 +1,7 @@
 (in-package :chariot)
 
 (in-asm-space chariot)
-(in-block chariot-setup)
+(in-block chariot-core)
 
 ;; first some macros
 (defparameter *forth-words* (make-hash-table :test 'equal))
