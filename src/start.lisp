@@ -159,7 +159,7 @@
        ;; temporary hackish tib-base. For now functions at uninteractive input prompt
        :tib-base
        (ea fth-content)
-       " ETERNAL " ;; so we don't have to think about appending a space to get a valid last input word
+       " CR ETERNAL " ;; so we don't have to think about appending a space to get a valid last input word
        :tib-top
        align)))
   
