@@ -42,6 +42,8 @@
 (defparameter *ps-base* (+ *base-address* #x10000))
 (defparameter *tib-base* (+ *ps-base* #x1000))
 (defparameter *rs-base* (+ *tib-base* #x4000))
+(defparameter *tob-base* *rs-base*)
+(defparameter *tob-max* (+ *tob-base* #x1000))
 
 (defvar *imm-flag* #x80)
 (defvar *hidden-flag* #x20)

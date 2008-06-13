@@ -79,11 +79,14 @@
 (def-forth-var latest ())
 (def-forth-var here ())
 (def-forth-var base () 16)
+(def-forth-var tobp () *tob-base*)
 
 ;; constants
 (def-forth-const version () 1)
 (def-forth-const rs-base () *rs-base*)
 (def-forth-const ps-base () *ps-base*)
+(def-forth-const tob-base () *tob-base*)
+(def-forth-const tob-max ()  *tob-max*)
 (def-forth-const docol () (address :%docol))
 (def-forth-const imm-flag () *imm-flag*)
 (def-forth-const hidden-flag () *hidden-flag*)
@@ -462,9 +465,40 @@
 ;; not yet implemented
 
 (defcode emit ()
-  ;; emits a byte to output, where-ever that is.
-  ;; is going to be implemented once I've got more of a clue
-  )
+  (pop-ps tmp-1)
+  (ldr tmp-2 (address :tobp-var))
+  (ldr tmp-3 (tmp-2))
+
+  (teq tmp-1 #xA)
+  (beq :emit-write-setup)
+  (teq tmp-1 #xD)
+  (beq :emit-write-setup)
+  
+  (strb tmp-1 (tmp-3) 1)
+  (str tmp-3 (tmp-2))
+
+  (ldr tmp-4 (address :tob-max-var))
+  (ldr tmp-4 (tmp-4))
+  (cmp tmp-3 tmp-4)
+  (bpl :emit-write-setup)
+
+  (b :to-next)
+
+  :emit-write-setup
+  (ldr tmp-4 (address :tob-base-var))
+  (ldr tmp-4 (tmp-4))
+  (push-ps tmp-4)
+  (sub tmp-5 tmp-3 tmp-4)
+  (push-ps tmp-5)
+
+  (str tmp-4 (tmp-2)) ;; set pointer to base of tob again
+  
+  (b-and-l :write-string)
+
+  :to-next)
+
+(defword test-emit ()
+  lit #\a emit lit #\b emit)
 
 ;; literal strings
 (defcode litstring ()
