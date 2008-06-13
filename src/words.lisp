@@ -803,8 +803,8 @@
   ;; and check if we have to compile a nr as well
   (ldr tmp-3 :litp)
   (tst tmp-3 tmp-3)
-  (movne tmp-1 tmp-4)  ;; if so compile
-  (b-and-l-ne :%comma) ;; the nr as well
+  (movne tmp-1 tmp-4)        ;; if so compile
+  (b-and-l :%comma :cond ne) ;; the nr as well
   next
   
   :execute-it
