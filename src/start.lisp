@@ -89,7 +89,9 @@
        :init-at-end
        ;; SETUP CODE
 
-       ;; init screens       
+       ;; init screens
+       (ldr jr (address :jr-base))
+       
        (b-and-l :init-system)
 
        ;; setting up the regs we need to set up
@@ -97,7 +99,6 @@
        (mov sp sb)
        (ldr tib *tib-base*)
        (ldr rb *rs-base*)
-       (ldr jr (address :jr-base))
        (mov rp rb)
 
        ;; setting up user-vars
@@ -114,8 +115,6 @@
 
        ;; put ip at beginning of simulated word
        (ldr ip (address :ip-start))
-
-       (b-and-l :write-test-string)
 
        ;; enter the forth interpret loop
        next
