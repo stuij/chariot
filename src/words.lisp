@@ -30,7 +30,8 @@
   (let ((word-list (loop for word in words
                       collect (etypecase word 
                                 (symbol `(word (address ,(intern (symbol-name word) :keyword))))
-                                (number `(word ,word))))))
+                                (number `(word ,word))
+                                (character `(word ,(aref (string-to-octets (format nil "~a" word) armish::*string-encoding*) 0)))))))
     `(defword-builder ,name (:flags ,flags :forth-name ,forth-name)
        (word (address :%docol))
        ,@word-list
