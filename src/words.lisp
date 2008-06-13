@@ -644,7 +644,7 @@
   (push-ps tmp-4)     ;; save for later
   (ldr tmp-4 (tmp-4)) ;; load 'latest'
 
-  (str tmp-4 (tmp-3) 4) ;; store link
+  (str tmp-4 (tmp-3) 4)  ;; store link
   (strb tmp-1 (tmp-3) 1) ;; store lenght byte (flags are all 0)
 
   ;; store name
@@ -841,3 +841,41 @@
 (defcode eternal ()
   :eternal-loop
   (b :eternal-loop))
+
+(let* ((string "\"And so you see, in each moment you must be catching up the distance between us, and yet I, at the same time, will be adding a new distance, however small, for you to catch up again.\"
+
+\"Indeed, it must be so,\" said Achilles wearily.
+
+\"And so you can never catch up,\" the Tortoise concluded sympathetically.
+
+\"You are right, as always,\" said Achilles sadly, and conceded the race.
+but then he thought..")
+       (string-length (length string))
+       (string2 "bl
+")
+       (string-length2 (length string2)))
+
+
+  (defcode test-write ()
+    (ldr tmp-2 (address :test-string))
+    (push-ps tmp-2)
+    (ldr tmp-1 string-length)
+    (push-ps tmp-1)
+    (b-and-l :write-string))
+  
+  (defcode test-write2 ()
+    (ldr tmp-2 (address :test-string2))
+    (push-ps tmp-2)
+    (ldr tmp-1 string-length2)
+    (push-ps tmp-1)
+    (b-and-l :write-string))
+  
+  (def-asm-fn some-test-strings
+    :test-string
+    (ea string)
+    align
+    
+    :test-string2
+    (ea string2)
+    align
+    pool))
