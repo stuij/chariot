@@ -459,8 +459,6 @@
   (space 32)
   pool)
 
-
-
 ;; output
 ;; not yet implemented
 
@@ -859,7 +857,7 @@
   align
   :interpret-error
   ;; once we have output, we'll implement something useful
-  (b :interpret-error)
+  (b :write-error-code)
   
   :litp
   (word 0))
@@ -885,8 +883,8 @@
 \"You are right, as always,\" said Achilles sadly, and conceded the race.
 but then he thought..")
        (string-length (length string))
-       (string2 "bl
-")
+       (string2 "Interpret error
+prolly a typo somewhere")
        (string-length2 (length string2)))
 
 
@@ -897,7 +895,7 @@ but then he thought..")
     (push-ps tmp-1)
     (b-and-l :write-string))
   
-  (defcode test-write2 ()
+  (defcode write-error ()
     (ldr tmp-2 (address :test-string2))
     (push-ps tmp-2)
     (ldr tmp-1 string-length2)
