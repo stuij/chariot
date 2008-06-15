@@ -48,31 +48,35 @@
        pool)))
 
 (defmacro def-forth-var (name (&key (flags 0) forth-name) &optional (val 0))
-  (let* ((label (intern (symbol-name name) :keyword))
-         (code-label (intern (symbol-name (concat-symbol label "-CODE")) :keyword))
-         (var-label (intern (symbol-name (concat-symbol label "-VAR")) :keyword)))
-    `(defword-builder ,name (:flags ,flags :forth-name ,forth-name)
-       (word (address ,code-label))
-       ,code-label
-       (ldr tmp-1 (address ,var-label))
-       (push-ps tmp-1)
-       next
-       ,var-label
-       (word ,val)
-       pool)))
+  `(progn
+     (eval-when (:compile-toplevel :load-toplevel :execute)
+       (add-jr-reachable (list ',name ,val)))
+     (defcode ,name (:flags ,flags :forth-name ,forth-name)
+       (load-jr-address tmp-1 ,name)
+       (push-ps tmp-1))))
 
 (defmacro def-forth-const (name (&key (flags 0) forth-name) val)
-  (let* ((label (intern (symbol-name name) :keyword))
-         (code-label (intern (symbol-name (concat-symbol label "-CODE")) :keyword))
-         (var-label (intern (symbol-name (concat-symbol label "-VAR")) :keyword)))
-    `(defword-builder ,name (:flags ,flags :forth-name ,forth-name)
-       (word (address ,code-label))
-       ,code-label
-       (ldr tmp-1 ,var-label)
-       (push-ps tmp-1)
-       next
-       ,var-label
-       (word ,val))))
+  `(progn
+     (eval-when (:compile-toplevel :load-toplevel :execute)
+       (add-jr-reachable (list ',name ,val)))
+     (defcode ,name (:flags ,flags :forth-name ,forth-name)
+       (load-jr tmp-1 ,name)
+       (push-ps tmp-1))))
+
+
+(def-asm-macro-lite next
+  (ldr tmp-5 (ip) 4)   ;; load cfa of next word in w and point ip to next word
+  (ldr w (tmp-5))      ;; load pfa/codeword or assembly of that next word
+  (mov pc w))          ;; branch to it
+
+;; little asm fn
+(def-asm-fn %docol
+  (push-rs ip)
+  (add w tmp-5 4) ;; increment to point to first word in definition (to which tmp-5 still references from the previous next)
+  (mov ip w)      ;; put word in ip so we can call next on it
+  next)
+
+
 
 ;; built-in variables
 (def-forth-var state ())
@@ -81,13 +85,14 @@
 (def-forth-var base () 16)
 (def-forth-var tobp () *tob-base*)
 
+
 ;; constants
 (def-forth-const version () 1)
 (def-forth-const rs-base () *rs-base*)
 (def-forth-const ps-base () *ps-base*)
 (def-forth-const tob-base () *tob-base*)
 (def-forth-const tob-max ()  *tob-max*)
-(def-forth-const docol () (address :%docol))
+(def-forth-const docol () '(address :%docol))
 (def-forth-const imm-flag () *imm-flag*)
 (def-forth-const hidden-flag () *hidden-flag*)
 (def-forth-const lenmask-flag () *lenmask-flag*)
@@ -464,8 +469,7 @@
 
 (defcode emit ()
   (pop-ps tmp-1)
-  (ldr tmp-2 (address :tobp-var))
-  (ldr tmp-3 (tmp-2))
+  (load-jr tmp-3 tobp)
 
   (teq tmp-1 #xA)
   (beq :emit-write-setup)
@@ -473,23 +477,21 @@
   (beq :emit-write-setup)
   
   (strb tmp-1 (tmp-3) 1)
-  (str tmp-3 (tmp-2))
+  (store-jr tmp-3 tobp)
 
-  (ldr tmp-4 (address :tob-max-var))
-  (ldr tmp-4 (tmp-4))
+  (load-jr tmp-4 tob-max)
   (cmp tmp-3 tmp-4)
   (bpl :emit-write-setup)
 
   (b :to-next)
 
   :emit-write-setup
-  (ldr tmp-4 (address :tob-base-var))
-  (ldr tmp-4 (tmp-4))
+  (load-jr tmp-4 tob-base)
   (push-ps tmp-4)
   (sub tmp-5 tmp-3 tmp-4)
   (push-ps tmp-5)
 
-  (str tmp-4 (tmp-2)) ;; set pointer to base of tob again
+  (store-jr tmp-4 tobp) ;; set pointer to base of tob again
   
   (b-and-l :write-string)
 
@@ -528,8 +530,7 @@
   (tst tmp-1 tmp-1) ;; check if string length is 0
   (beq :return-nr)
 
-  (ldr tmp-5 (address :base-var)) ;; load the
-  (ldr tmp-5 (tmp-5))             ;; current base
+  (load-jr tmp-5 base) ;; load the current base
   
   ;; check if first char is #\-
   (push-ps tmp-3) ;; put 1 on stack indicating positive
@@ -593,8 +594,7 @@
   (push-ps tmp-3)) ;; address of dictionary entry or 0
 
 (def-asm-fn %find
-  (ldr tmp-3 (address :latest-var))
-  (ldr tmp-3 (tmp-3))
+  (load-jr tmp-3 latest)
 
   :find-try-again
   (tst tmp-3 tmp-3) ;; lastest is 0?
@@ -668,13 +668,10 @@
   (pop-ps tmp-1) ;; length of name
   (pop-ps tmp-2) ;; address of name
 
-  (ldr tmp-3 (address :here-var))
-  (ldr tmp-3 (tmp-3)) ;; load 'here'
-  (push-ps tmp-3)     ;; save a copy for later
+  (load-jr tmp-3 here) ;; load 'here'
+  (push-ps tmp-3)          ;; save a copy for later
   
-  (ldr tmp-4 (address :latest-var))
-  (push-ps tmp-4)     ;; save for later
-  (ldr tmp-4 (tmp-4)) ;; load 'latest'
+  (load-jr tmp-4 latest) ;; load 'latest'
 
   (str tmp-4 (tmp-3) 4)  ;; store link
   (strb tmp-1 (tmp-3) 1) ;; store lenght byte (flags are all 0)
@@ -697,18 +694,15 @@
   ;; the previous load here/latest dance
 
   ;; get the 'here' and 'latest' store addresses back
-  (ldr tmp-2 (address :here-var))
-  (pop-ps tmp-4)
-  (pop-ps tmp-5)
+  (pop-ps tmp-2)
+  
   ;; now the relevant register situation looks like this
-  ;; tmp-2 = here-var address
   ;; tmp-3 = now here
-  ;; tmp-4 = latest-var address
   ;; tmp-5 = starting here pointer address, now link address
   
   ;; so lets store the new values
-  (str tmp-3 (tmp-2))
-  (str tmp-5 (tmp-4)))
+  (store-jr tmp-3 here)
+  (store-jr tmp-2 latest))
 
 (defcode comma (:forth-name ",")
   (pop-ps tmp-1)
@@ -716,28 +710,24 @@
 
 (def-asm-fn %comma
   ;; if ya can, don't disturb tmp-4. Interpret expects this
-  (ldr tmp-2 (address :here-var))
-  (ldr tmp-3 (tmp-2)) ;; actual address of here
+  (load-jr tmp-3 here) ;; actual address of here
   (str tmp-1 (tmp-3) 4)
-  (str tmp-3 (tmp-2)) ;; store new incrememted next free byte back in here-var
+  (store-jr tmp-3 here) ;; store new incrememted next free byte back in here
   (mov pc lr)
   pool)
 
 ;; could also give names [ and ] on lisp side
 ;; but parenscript hates that
 (defcode lbrac (:forth-name "[" :flags *imm-flag*)
-  (ldr tmp-1 (address :state-var))
   (mov tmp-2 0)
-  (str tmp-2 (tmp-1))) ;; get (from immedate mode) into compiling mode
+  (store-jr tmp-2 state)) ;; get (from immedate mode) into compiling mode
 
 (defcode rbrac (:forth-name "]")
-  (ldr tmp-1 (address :state-var))
   (mov tmp-2 1)
-  (str tmp-2 (tmp-1))) ;; go into immediate mode from compiling mode
+  (store-jr tmp-2 state)) ;; go into immediate mode from compiling mode
 
 (defcode immediate (:flags *imm-flag*)
-  (ldr  tmp-1 (address :latest-var))
-  (ldr  tmp-1 (tmp-1))
+  (load-jr tmp-1 latest)
   (add  tmp-1 tmp-1 4)
   (ldrb tmp-2 (tmp-1))
   (eor  tmp-2 tmp-2 *imm-flag*)
@@ -826,8 +816,7 @@
   ;; tmp-2, tmp-3 are now free
   ;; tmp-1 holds either the lit address or the word address
   ;; tmp-4 holds the number value if word was a nr
-  (ldr tmp-3 (address :state-var))
-  (ldr tmp-3 (tmp-3))
+  (load-jr tmp-3 state)
   (tst tmp-3 tmp-3) ;; if state is 0, we're in interpret mode,
   (beq :execute-it) ;; so execute
   ;; otherwise we're compiling, so compile the word in tmp-1

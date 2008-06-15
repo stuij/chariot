@@ -55,20 +55,6 @@
 (in-asm-space chariot)
 (in-block chariot-core)
 
-;; general asm
-;; macros
-(def-asm-macro-lite next
-  (ldr tmp-5 (ip) 4)   ;; load cfa of next word in w and point ip to next word
-  (ldr w (tmp-5))      ;; load pfa/codeword or assembly of that next word
-  (mov pc w))          ;; branch to it
-
-;; fns
-(def-asm-fn %docol
-  (push-rs ip)
-  (add w tmp-5 4) ;; increment to point to first word in definition (to which tmp-5 still references from the previous next)
-  (mov ip w)      ;; put word in ip so we can call next on it
-  next)
-
 (set-asm-init-routines
   (emit-asm
    
@@ -89,32 +75,28 @@
        :init-at-end
        ;; SETUP CODE
 
-       ;; init screens
+       ;; setup jr
        (ldr jr (address :jr-base))
        
+       ;; init screens
        (b-and-l :init-system)
 
-       ;; setting up the regs we need to set up
+       ;; setting up the chariot regs
        (ldr sb *ps-base*)
        (mov sp sb)
        (ldr tib *tib-base*)
        (ldr rb *rs-base*)
        (mov rp rb)
+       (ldr ip (address :ip-start)) ;; put ip at beginning of simulated word
 
        ;; setting up user-vars
        ;; latest
-       (ldr tmp-1 (address :latest-var))
        (ldr tmp-2 (ia link))
-       (str tmp-2 (tmp-1))
-
+       (store-jr tmp-2 latest)
        ;; here
-       (ldr tmp-1 (address :here-var))
        (ldr tmp-2 (address :code-end))
        (add tmp-2 tmp-2 4) ;; skip past the eternal loop that is now the arm7 code. this is a hack 
-       (str tmp-2 (tmp-1))
-
-       ;; put ip at beginning of simulated word
-       (ldr ip (address :ip-start))
+       (store-jr tmp-2 here)
 
        ;; enter the forth interpret loop
        next
@@ -123,7 +105,7 @@
        ;; SETUP DATA
        
        ;; jr reachables
-       (liards::dump-jr-data)
+       (dump-jr-data)
        align
 
        pool ;; just to be sure. perhaps the tmp tib becomes to big for ldr to fetch it's data
@@ -131,19 +113,19 @@
        
        ;; font writing data
        :char-x-data
-       (bin 8 liards::*char-x-data*)
+       (bin 8 *char-x-data*)
        align
        
        :char-y-data
-       (bin 8 liards::*char-y-data*)
+       (bin 8 *char-y-data*)
        align
 
        :char-sizes
-       (bin 8 liards::*char-sizes*)
+       (bin 8 *char-sizes*)
        align
 
        :char-widths
-       (bin 8 liards::*char-widths*)
+       (bin 8 *char-widths*)
        align
 
        :char-offsets
