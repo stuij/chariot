@@ -92,13 +92,15 @@
 (def-forth-const lenmask-flag () *lenmask-flag*)
 
 
-;; cool functions
+
+;; lalala
 (defcode exit ()
   (pop-rs ip))
 
 (defcode lit ()
   (ldr tmp-1 (ip) 4)
   (push-ps tmp-1))
+
 
 ;; the mundane
 (defcode drop ()
@@ -182,7 +184,7 @@
   (push-ps tmp-3))
 
 (defcode - ()
-  (pop-ps tmp-1)
+  (pop-ps tmp-1) 
   (pop-ps tmp-2)
   (sub tmp-3 tmp-2 tmp-1)
   (push-ps tmp-3))
@@ -193,9 +195,12 @@
   (mul tmp-3 tmp-1 tmp-2)
   (push-ps tmp-3))
 
-#-(and) (defcode /mod ()
-          "remains unimplemented for now. have to see how to best handle division on arm")
-
+(defcode /mod ()
+  (pop-ps tmp-1) ;; denominator
+  (pop-ps tmp-2) ;; numerator
+  (b-and-l :sdiv-32by32-arm7m)
+  (push-ps tmp-2)
+  (push-ps tmp-1))
 
 
 ;; comparation fn's
@@ -292,7 +297,6 @@
   (push-ps tmp-3))
 
 
-
 ;; logical
 (defcode and ()
   (pop-ps tmp-1)
@@ -316,7 +320,6 @@
   (pop-ps tmp-1)
   (mvn tmp-2 tmp-1)
   (push-ps tmp-3))
-
 
 
 ;; memory manipulation!
@@ -354,10 +357,33 @@
   (ldrb tmp-2 (tmp-1))
   (push-ps tmp-2))
 
-;; block copying. will look at it later
-#-(and) ((defcode c@c!)
-         (defcode cmove))
 
+;; block copyin
+(defcode c@c! ()
+  (pop-ps tmp-1) ;; source address
+  (pop-ps tmp-2) ;; dest. address
+  
+  (ldrb tmp-3 (tmp-1) 1) ;; get char at source, and increment to next byte
+  (strb tmp-3 (tmp-2) 1) ;; push it to dest, and increment to next byte
+  
+  (push-ps tmp-2)        ;; put dest on stack again
+  (push-ps tmp-1))       ;; and then the source
+
+
+(defcode cmove ()
+  (pop-ps tmp-1) ;; length
+  (pop-ps tmp-2) ;; destination address
+  (pop-ps tmp-3) ;; source address
+
+  (subs tmp-1 tmp-1 1) ;; setup for loop
+  (beq :cmove-end)     ;; and test for 0
+
+  :cmove-loop
+  (ldrb tmp-4 (tmp-3) 1)
+  (strb tmp-4 (tmp-2) 1)
+  (subs tmp-1 tmp-1 1)
+  (bpl :cmove-loop)
+  :cmove-end)
 
 
 ;; return stack manipulation
@@ -379,7 +405,6 @@
   (pop-rs tmp-1))
 
 
-
 ;; parameter (return) stack manipulation
 (defcode dsp@ ()
   (mov tmp-1 sp)
@@ -387,7 +412,6 @@
 
 (defcode dsp! ()
   (pop-ps sp))
-
 
 
 ;; input
@@ -431,6 +455,10 @@
   (beq :skip-comment)
   (teq tmp-1 #\space)
   (beq :%word)
+  (teq tmp-1 #\newline)
+  (beq :%word)
+  (teq tmp-1 #\tab)
+  (beq :%word)
 
   (ldr tmp-2 (address :word-buffer))
   (mov tmp-3 tmp-2)
@@ -441,8 +469,13 @@
   (b-and-l :%key)
   (ldmfd sp! (tmp-3 tmp-2 lr))
   (teq tmp-1 #\space)
+  (beq :determine-word-length)
+  (teq tmp-1 #\tab)
+  (beq :determine-word-length)
+  (teq tmp-1 #\newline)
   (bne :search-word-end)
 
+  :determine-word-length
   (sub tmp-1 tmp-3 tmp-2) ;; determine word lenght
   (mov pc lr)             ;; and return
   
@@ -459,8 +492,6 @@
   pool)
 
 ;; output
-;; not yet implemented
-
 (defcode emit ()
   (pop-ps tmp-1)
   (load-jr tmp-3 tobp)
@@ -494,7 +525,8 @@
 (defword test-emit ()
   lit #\a emit lit #\b emit)
 
-;; literal strings
+
+;; strings/chars
 (defcode litstring ()
   (ldr tmp-1 (ip) 4)
   (push-ps ip)
@@ -504,18 +536,23 @@
   (bic ip ip 3))
 
 (defcode tell ()
-  ;; prints a string, but how?
-  ;; I'll look into it when concidering general output
-  )
+  (b-and-l :write-string))
+
+(defcode char ()
+  (b-and-l :%word)
+  ;; tmp-1 = word length
+  ;; tmp-2 = word base address
+  (ldrb tmp-3 (tmp-2))
+  (push-ps tmp-3))
 
 
 ;; parsing numbers
 (defcode number ()
-  (pop-ps tmp-1) ;; length of string
-  (pop-ps tmp-2) ;; start of string
+  (pop-ps tmp-1)   ;; length of string
+  (pop-ps tmp-2)   ;; start of string
   (b-and-l :%number)
-  (push-ps tmp-4)   ;; parsed nr
-  (push-ps tmp-1))  ;; nr of unparsed chars (0 = NO error)
+  (push-ps tmp-4)    ;; parsed nr
+  (push-ps tmp-1))   ;; nr of unparsed chars (0 = NO error)
 
 (def-asm-fn %number
   (mov tmp-3 1)
@@ -546,8 +583,8 @@
   
   :convert-to-nr
   (subs tmp-3 tmp-3 #\0)
-  (blt :wrap-up-nr) ;; aka error
-  (cmp tmp-3 10)    ;; check if lower than '9'
+  (blt :wrap-up-nr)   ;; aka error
+  (cmp tmp-3 10)      ;; check if lower than '9'
   (blt :base-overflow-p) ;; if so, it's a nr between 0 and 9 check for base overflow
   (subs tmp-3 tmp-3 17)  ;; check if lower than 'A'
   (blt :wrap-up-nr)      ;; aka error
@@ -559,8 +596,8 @@
   (add tmp-3 tmp-3 10) ;; otherwise leave it up to base-overflow to see if we went over 'z'
   
   :base-overflow-p
-  (cmp tmp-3 tmp-5) ;; compare nr to base
-  (bge :wrap-up-nr) ;; to big? error
+  (cmp tmp-3 tmp-5)   ;; compare nr to base
+  (bge :wrap-up-nr)   ;; to big? error
 
   :add-to-nr
   (mul tmp-4 tmp-4 tmp-5) ;; tmp-4 (*= tmp-4 base), so shift nr, sort of
@@ -582,8 +619,8 @@
 ;; finding words and word offsets
 
 (defcode find ()
-  (pop-ps tmp-1) ;; length
-  (pop-ps tmp-2) ;; address
+  (pop-ps tmp-1)   ;; length
+  (pop-ps tmp-2)   ;; address
   (b-and-l :%find)
   (push-ps tmp-3)) ;; address of dictionary entry or 0
 
@@ -643,8 +680,8 @@
   ;; please don't modify tmp-3. interpret counts on it not changing
   ;; this might be ugly but saves us a few instructions
   ;; ungh! premature optimization... assembly fucks with your head
-  (add tmp-1 tmp-3 4)    ;; skip past link word
-  (ldrb tmp-2 (tmp-1) 1) ;; load and skip past length/flags byte
+  (add tmp-1 tmp-3 4)              ;; skip past link word
+  (ldrb tmp-2 (tmp-1) 1)           ;; load and skip past length/flags byte
   (and tmp-2 tmp-2 *lenmask-flag*) ;; length
   (add tmp-1 tmp-1 tmp-2)          ;; and skip past
   ;; word align
@@ -659,16 +696,16 @@
 
 ;; compiling!
 (defcode create ()
-  (pop-ps tmp-1) ;; length of name
-  (pop-ps tmp-2) ;; address of name
+  (pop-ps tmp-1)   ;; length of name
+  (pop-ps tmp-2)   ;; address of name
 
-  (load-jr tmp-3 here) ;; load 'here'
+  (load-jr tmp-3 here)     ;; load 'here'
   (push-ps tmp-3)          ;; save a copy for later
   
   (load-jr tmp-4 latest) ;; load 'latest'
 
-  (str tmp-4 (tmp-3) 4)  ;; store link
-  (strb tmp-1 (tmp-3) 1) ;; store lenght byte (flags are all 0)
+  (str tmp-4 (tmp-3) 4)    ;; store link
+  (strb tmp-1 (tmp-3) 1)   ;; store lenght byte (flags are all 0)
 
   ;; store name
   (sub tmp-1 tmp-1 1)
@@ -680,8 +717,8 @@
   (bpl :store-name-loop)
 
   ;; align
-  (add tmp-3 tmp-3 3) ;; to next
-  (bic tmp-3 tmp-3 3) ;; 4-byte boundry
+  (add tmp-3 tmp-3 3)   ;; to next
+  (bic tmp-3 tmp-3 3)   ;; 4-byte boundry
 
   ;; save new 'here' and 'latest'
   ;; not super opcode-efficient, but clearer than camming all the logic in
@@ -711,7 +748,7 @@
   pool)
 
 ;; could also give names [ and ] on lisp side
-;; but parenscript hates that
+;; but paredit hates that
 (defcode lbrac (:forth-name "[" :flags *imm-flag*)
   (mov tmp-2 0)
   (store-jr tmp-2 state)) ;; get (from immedate mode) into compiling mode
@@ -744,6 +781,7 @@
   (ldr tmp-1 (ip) 4)
   (push-ps tmp-1))
 
+
 ;; the king and queen of forth word compiling
 (defword colon (:forth-name ":")
   word create
@@ -755,6 +793,7 @@
   lit exit comma
   latest @ hidden
   lbrac)
+
 
 ;; branching
 (defcode branch ()
@@ -770,7 +809,7 @@
 
 ;; interpreter!!
 (defword quit ()
-  rs-base rsp! interpret branch -8)
+  r0 rsp! interpret branch -8)
 
 (defcode interpret ()
   (b-and-l :%word)
@@ -811,20 +850,20 @@
   ;; tmp-1 holds either the lit address or the word address
   ;; tmp-4 holds the number value if word was a nr
   (load-jr tmp-3 state)
-  (tst tmp-3 tmp-3) ;; if state is 0, we're in interpret mode,
-  (beq :execute-it) ;; so execute
+  (tst tmp-3 tmp-3)   ;; if state is 0, we're in interpret mode,
+  (beq :execute-it)   ;; so execute
   ;; otherwise we're compiling, so compile the word in tmp-1
   (b-and-l :%comma)
   ;; and check if we have to compile a nr as well
   (ldr tmp-3 :litp)
   (tst tmp-3 tmp-3)
-  (movne tmp-1 tmp-4)        ;; if so compile
-  (b-and-l :%comma :cond ne) ;; the nr as well
+  (movne tmp-1 tmp-4)          ;; if so compile
+  (b-and-l :%comma :cond ne)   ;; the nr as well
   next
   
   :execute-it
-  (ldr tmp-3 :litp)  ;; if we're dealing
-  (tst tmp-3 tmp-3)  ;; with a literal,
+  (ldr tmp-3 :litp)   ;; if we're dealing
+  (tst tmp-3 tmp-3)   ;; with a literal,
   (bne :push-literal-on-stack) ;; push it on the stack
 
   ;; otherwise jump to it
@@ -846,6 +885,13 @@
   (word 0))
 
 
+;; executing
+(defcode execute ()
+  (pop-ps tmp-5)
+  (ldr tmp-1 (tmp-5))
+  (mov pc tmp-1))
+
+
 ;; misc
 
 ;; debugging
@@ -857,40 +903,33 @@
   :eternal-loop
   (b :eternal-loop))
 
-(let* ((string "\"And so you see, in each moment you must be catching up the distance between us, and yet I, at the same time, will be adding a new distance, however small, for you to catch up again.\"
-
-\"Indeed, it must be so,\" said Achilles wearily.
-
-\"And so you can never catch up,\" the Tortoise concluded sympathetically.
-
-\"You are right, as always,\" said Achilles sadly, and conceded the race.
-but then he thought..")
-       (string-length (length string))
-       (string2 "Interpret error
+(let* ((e-string "Interpret error
 prolly a typo somewhere")
-       (string-length2 (length string2)))
+       (e-length (length e-string))
+       (dev-err "Divide error")
+       (dev-err-length (length dev-err)))
 
-
-  (defcode test-write ()
-    (ldr tmp-2 (address :test-string))
-    (push-ps tmp-2)
-    (ldr tmp-1 string-length)
-    (push-ps tmp-1)
-    (b-and-l :write-string))
-  
   (defcode write-error ()
-    (ldr tmp-2 (address :test-string2))
+    (ldr tmp-2 (address :e-string))
     (push-ps tmp-2)
-    (ldr tmp-1 string-length2)
+    (ldr tmp-1 e-length)
     (push-ps tmp-1)
     (b-and-l :write-string))
+
+  (def-asm-fn divide-error
+    (stmfd sp! (lr))
+    (ldr tmp-2 (address :dev-err))
+    (push-ps tmp-2)
+    (ldr tmp-1 dev-err-length)
+    (push-ps tmp-1)
+    (b-and-l :write-string)
+    (ldmfd sp! (pc))
+
+    pool)
   
-  (def-asm-fn some-test-strings
-    :test-string
-    (ea string)
-    align
-    
-    :test-string2
-    (ea string2)
-    align
-    pool))
+  (def-asm-fn e-strings
+    :e-string
+    (ea e-string)
+    :dev-err
+    (ea dev-err)
+    align))
