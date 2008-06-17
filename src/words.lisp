@@ -77,12 +77,12 @@
 (def-forth-var here ())
 (def-forth-var base () 16)
 (def-forth-var tobp () *tob-base*)
-
+(def-forth-var s0 () *ps-base*) ;; is fixed but we keep compatibility
+;; with jonesforth for now
 
 ;; constants
 (def-forth-const version () 1)
-(def-forth-const rs-base () *rs-base*)
-(def-forth-const ps-base () *ps-base*)
+(def-forth-const r0 () *rs-base*)
 (def-forth-const tob-base () *tob-base*)
 (def-forth-const tob-max ()  *tob-max*)
 (def-forth-const docol () '(address :%docol))
