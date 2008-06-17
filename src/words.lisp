@@ -3,8 +3,17 @@
 (in-asm-space chariot)
 (in-block chariot-core)
 
-;; first some macros
-(defparameter *forth-words* (make-hash-table :test 'equal))
+;; first some macros and a fn for some reason or other)
+(def-asm-macro-lite next
+  (ldr tmp-5 (ip) 4)   ;; load cfa of next word in w and point ip to next word
+  (ldr w (tmp-5))      ;; load pfa/codeword or assembly of that next word
+  (mov pc w))          ;; branch to it
+
+(def-asm-fn %docol
+  (push-rs ip)
+  (add w tmp-5 4) ;; increment to point to first word in definition (to which tmp-5 still references from the previous next)
+  (mov ip w)      ;; put word in ip so we can call next on it
+  next)
 
 (defmacro defword-builder (name (&key (flags 0) forth-name) &rest body)
   (let* ((word-name (if forth-name
