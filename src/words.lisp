@@ -24,16 +24,14 @@
          (link-label (intern (symbol-name (concat-symbol label "-LINK")) :keyword)))
     (assert (<= word-length 32) (word-length)
             "word lenght of ~a is bigger than 32" word-length)
-    `(progn
-       (setf (gethash ,word-name *forth-words*) (cons ,label ,link-label))
-       (def-asm-fn ,(intern (symbol-name link-label))
-         (word (ia link))
-         (byte (ea (+ ,flags ,word-length)))
-         (string ,word-name)
-         align
-         ,label
-         ,@body
-         (set-asm-param link (address ,link-label))))))
+    `(def-asm-fn ,(intern (symbol-name link-label))
+       (word (ia link))
+       (byte (ea (+ ,flags ,word-length)))
+       (string ,word-name)
+       align
+       ,label
+       ,@body
+       (set-asm-param link (address ,link-label)))))
 
 (defmacro defword (name (&key (flags 0) forth-name) &body words)
   (let ((word-list (loop for word in words
