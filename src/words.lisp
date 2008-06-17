@@ -594,7 +594,7 @@
   (blt :wrap-up-nr)      ;; aka error
   (cmp tmp-3 26)         ;; check if nr is in range 'A'-'Z'
   (addlt tmp-3 tmp-3 10) ;; if so add 10
-  (blt :add-to-nr)       ;; and branch to overflow
+  (blt :base-overflow-p) ;; and branch to overflow
   (subs tmp-3 tmp-3 32)  ;; otherwise add 26 plus 6 to get to 'a'-'z'
   (blt :wrap-up-nr)      ;; lower than that is error
   (add tmp-3 tmp-3 10) ;; otherwise leave it up to base-overflow to see if we went over 'z'
@@ -879,8 +879,6 @@
   (push-ps tmp-4)
   next
   
-  "interpret-error"
-  align
   :interpret-error
   ;; once we have output, we'll implement something useful
   (b :write-error-code)
