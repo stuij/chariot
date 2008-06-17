@@ -106,6 +106,10 @@
 (defcode drop ()
   (pop-ps tmp-1))
 
+(defcode 2drop ()
+  (pop-ps tmp-1)
+  (pop-ps tmp-1))
+
 (defcode dup ()
   (ldr tmp-1 (sp))
   (push-ps tmp-1))
