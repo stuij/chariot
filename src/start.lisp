@@ -66,9 +66,7 @@
   (let ((fth-content (strcat (read-string-from-file (concatenate 'string (namestring *forth-source-dir*) "/"  "lib.fth") :external-format :latin-1)
                              " "
                              (when fth-file
-                               (read-string-from-file (concatenate 'string (namestring *forth-source-dir*) "/"  fth-file) :external-format :latin-1))))
-        (liards::*letter-spacing* 1))
-    (liards::make-font)
+                               (read-string-from-file (concatenate 'string (namestring *forth-source-dir*) "/"  fth-file) :external-format :latin-1)))))
     (set-asm-final-routines
       (emit-asm
        
@@ -146,8 +144,7 @@
        align)))
   
   (armish::get-asm-space 'chariot)
-  
-  (liards::nds-compile
+    (liards::nds-compile
    (assemble 'arm9 'arm (emit-arm-fns (armish::get-cluster 'chariot-ds :in 'chariot)))
    liards::*arm7-bin*
    "fuck-around.nds"))
