@@ -71,21 +71,7 @@
        (push-ps tmp-1))))
 
 
-(def-asm-macro-lite next
-  (ldr tmp-5 (ip) 4)   ;; load cfa of next word in w and point ip to next word
-  (ldr w (tmp-5))      ;; load pfa/codeword or assembly of that next word
-  (mov pc w))          ;; branch to it
-
-;; little asm fn
-(def-asm-fn %docol
-  (push-rs ip)
-  (add w tmp-5 4) ;; increment to point to first word in definition (to which tmp-5 still references from the previous next)
-  (mov ip w)      ;; put word in ip so we can call next on it
-  next)
-
-
-
-;; built-in variables
+;; user variables
 (def-forth-var state ())
 (def-forth-var latest ())
 (def-forth-var here ())
