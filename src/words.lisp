@@ -121,7 +121,7 @@
   (push-ps tmp-1))
 
 (defcode over ()
-  (str tmp-1 (sp 4))
+  (ldr tmp-1 (sp 4))
   (push-ps tmp-1))
 
 (defcode swap ()
@@ -157,7 +157,7 @@
   (push-ps tmp-3))
 
 (defcode ?dup ()
-  (str tmp-1 (sp))
+  (ldr tmp-1 (sp))
   (teq tmp-1 0)
   (push-ps tmp-1 :cond ne))
 
