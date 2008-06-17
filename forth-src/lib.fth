@@ -2,8 +2,8 @@
 : MOD /MOD DROP ;
 
 \ Define some character constants
-: '\n' 10 ;
-: BL   32 ; \ BL (BLank) is a standard FORTH word for space.
+: '\n' A ;
+: BL   20 ; \ BL (BLank) is a standard FORTH word for space.
 
 \ CR prints a carriage return
 : CR '\n' EMIT ;
@@ -25,10 +25,6 @@
 	,		\ compile the literal itself (from the stack)
 	;
 
-\ Now we can use [ and ] to insert literals which are calculated at compile time.  (Recall that
-\ [ and ] are the FORTH words which switch into and out of immediate mode.)
-\ Within definitions, use [ ... ] LITERAL anywhere that '...' is a constant expression which you
-\ would rather only compute once (at compile time, rather than calculating it each time your word runs).
 : ':'
 	[		\ go into immediate mode (temporarily)
 	CHAR :		\ push the number 58 (ASCII code of colon) on the parameter stack
@@ -54,38 +50,12 @@
 	,		\ and compile that
 ;
 
-\ RECURSE makes a recursive call to the current word that is being compiled.
-\
-\ Normally while a word is being compiled, it is marked HIDDEN so that references to the
-\ same word within are calls to the previous definition of the word.  However we still have
-\ access to the word which we are currently compiling through the LATEST pointer so we
-\ can use that to compile a recursive call.
 : RECURSE IMMEDIATE
 	LATEST @	\ LATEST points to the word being compiled at the moment
 	>CFA		\ get the codeword
 	,		\ compile it
 ;
 
-\	CONTROL STRUCTURES ----------------------------------------------------------------------
-\
-\ So far we have defined only very simple definitions.  Before we can go further, we really need to
-\ make some control structures, like IF ... THEN and loops.  Luckily we can define arbitrary control
-\ structures directly in FORTH.
-\
-\ Please note that the control structures as I have defined them here will only work inside compiled
-\ words.  If you try to type in expressions using IF, etc. in immediate mode, then they won't work.
-\ Making these work in immediate mode is left as an exercise for the reader.
-
-\ condition IF true-part THEN rest
-\	-- compiles to: --> condition 0BRANCH OFFSET true-part rest
-\	where OFFSET is the offset of 'rest'
-\ condition IF true-part ELSE false-part THEN
-\ 	-- compiles to: --> condition 0BRANCH OFFSET true-part BRANCH OFFSET2 false-part rest
-\	where OFFSET if the offset of false-part and OFFSET2 is the offset of rest
-
-\ IF is an IMMEDIATE word which compiles 0BRANCH followed by a dummy offset, and places
-\ the address of the 0BRANCH on the stack.  Later when we see THEN, we pop that address
-\ off the stack, calculate the offset, and back-fill the offset.
 : IF IMMEDIATE
 	' 0BRANCH ,	\ compile 0BRANCH
 	HERE @		\ save location of the offset on the stack
@@ -108,10 +78,6 @@
 	SWAP !
 ;
 
-\ BEGIN loop-part condition UNTIL
-\	-- compiles to: --> loop-part condition 0BRANCH OFFSET
-\	where OFFSET points back to the loop-part
-\ This is like do { loop-part } while (condition) in the C language
 : BEGIN IMMEDIATE
 	HERE @		\ save location on the stack
 ;
@@ -122,20 +88,12 @@
 	,		\ compile the offset here
 ;
 
-\ BEGIN loop-part AGAIN
-\	-- compiles to: --> loop-part BRANCH OFFSET
-\	where OFFSET points back to the loop-part
-\ In other words, an infinite loop which can only be returned from with EXIT
 : AGAIN IMMEDIATE
 	' BRANCH ,	\ compile BRANCH
 	HERE @ -	\ calculate the offset back
 	,		\ compile the offset here
 ;
 
-\ BEGIN condition WHILE loop-part REPEAT
-\	-- compiles to: --> condition 0BRANCH OFFSET2 loop-part BRANCH OFFSET
-\	where OFFSET points back to condition (the beginning) and OFFSET2 points to after the whole piece of code
-\ So this is like a while (condition) { loop-part } loop in the C language
 : WHILE IMMEDIATE
 	' 0BRANCH ,	\ compile 0BRANCH
 	HERE @		\ save location of the offset2 on the stack
@@ -151,23 +109,11 @@
 	SWAP !		\ and back-fill it in the original location
 ;
 
-\ UNLESS is the same as IF but the test is reversed.
-\
-\ Note the use of [COMPILE]: Since IF is IMMEDIATE we don't want it to be executed while UNLESS
-\ is compiling, but while UNLESS is running (which happens to be when whatever word using UNLESS is
-\ being compiled -- whew!).  So we use [COMPILE] to reverse the effect of marking IF as immediate.
-\ This trick is generally used when we want to write our own control words without having to
-\ implement them all in terms of the primitives 0BRANCH and BRANCH, but instead reusing simpler
-\ control words like (in this instance) IF.
 : UNLESS IMMEDIATE
 	' NOT ,		\ compile NOT (to reverse the test)
 	[COMPILE] IF	\ continue by calling the normal IF
 ;
 
-\	COMMENTS ----------------------------------------------------------------------
-\
-\ FORTH allows ( ... ) as comments within function definitions.  This works by having an IMMEDIATE
-\ word called ( which just drops input characters until it hits the corresponding ).
 : ( IMMEDIATE
 	1		\ allowed nested parens by keeping track of depth
 	BEGIN
@@ -184,21 +130,6 @@
 	DROP		\ drop the depth counter
 ;
 
-(
-	From now on we can use ( ... ) for comments.
-
-	STACK NOTATION ----------------------------------------------------------------------
-
-	In FORTH style we can also use ( ... -- ... ) to show the effects that a word has on the
-	parameter stack.  For example:
-
-	( n -- )	means that the word consumes an integer (n) from the parameter stack.
-	( b a -- c )	means that the word uses two integers (a and b, where a is at the top of stack)
-				and returns a single integer (c).
-	( -- )		means the word has no effect on the stack
-)
-
-( Some more complicated stack examples, showing the stack notation. )
 : NIP ( x y -- y ) SWAP DROP ;
 : TUCK ( x y -- y x y ) DUP ROT ;
 : PICK ( x_u ... x_1 x_0 u -- x_u ... x_1 x_0 x_u )
@@ -223,3 +154,279 @@
 : DECIMAL ( -- ) A BASE ! ;
 : HEX ( -- ) 10 BASE ! ;
 
+: U.		( u -- )
+	BASE @ /MOD	( width rem quot )
+	?DUP IF			( if quotient <> 0 then )
+		RECURSE		( print the quotient )
+	THEN
+
+	( print the remainder )
+	DUP 10 < IF
+		'0'		( decimal digits 0..9 )
+	ELSE
+		10 -		( hex and beyond digits A..Z )
+		'A'
+	THEN
+	+
+	EMIT
+;
+
+: .S		( -- )
+	DSP@		( get current stack pointer )
+	BEGIN
+		DUP S0 @ <
+	WHILE
+		DUP @ U.	( print the stack element )
+		SPACE
+		4+		( move up )
+	REPEAT
+	DROP
+;
+
+( This word returns the width (in characters) of an unsigned number in the current base )
+: UWIDTH	( u -- width )
+	BASE @ /	( rem quot )
+	?DUP IF		( if quotient <> 0 then )
+		RECURSE 1+	( return 1+recursive call )
+	ELSE
+		1		( return 1 )
+	THEN
+;
+
+: U.R		( u width -- )
+	SWAP		( width u )
+	DUP		( width u u )
+	UWIDTH		( width u uwidth )
+	-ROT		( u uwidth width )
+	SWAP -		( u width-uwidth )
+	U.
+;
+
+(
+	.R prints a signed number, padded to a certain width.  We can't just print the sign
+	and call U.R because we want the sign to be next to the number ('-123' instead of '-  123').
+)
+: .R		( n width -- )
+	SWAP		( width n )
+	DUP 0< IF
+		NEGATE		( width u )
+		1		( save a flag to remember that it was negative | width n 1 )
+		ROT		( 1 width u )
+		SWAP		( 1 u width )
+		1-		( 1 u width-1 )
+	ELSE
+		0		( width u 0 )
+		ROT		( 0 width u )
+		SWAP		( 0 u width )
+	THEN
+	SWAP		( flag width u )
+	DUP		( flag width u u )
+	UWIDTH		( flag width u uwidth )
+	-ROT		( flag u uwidth width )
+	SWAP -		( flag u width-uwidth )
+
+	SPACES		( flag u )
+	SWAP		( u flag )
+
+	IF			( was it negative? print the - character )
+		'-' EMIT
+	THEN
+
+	U.
+;
+
+( Finally we can define word . in terms of .R, with a trailing space. )
+: . 0 .R SPACE ;
+
+( The real U., note the trailing space. )
+: U. U. SPACE ;
+
+( ? fetches the integer at an address and prints it. )
+: ? ( addr -- ) @ . ;
+
+( c a b WITHIN returns true if a <= c and c < b )
+: WITHIN
+	ROT		( b c a )
+	OVER		( b c a c )
+	<= IF
+		> IF		( b c -- )
+			TRUE
+		ELSE
+			FALSE
+		THEN
+	ELSE
+		2DROP		( b c -- )
+		FALSE
+	THEN
+;
+
+: DEPTH		( -- n )
+	S0 @ DSP@ -
+	4-			( adjust because S0 was on the stack when we pushed DSP )
+;
+
+: ALIGNED	( addr -- addr )
+	3 + 3 INVERT AND	( (addr+3) & ~3 )
+;
+
+: ALIGN HERE @ ALIGNED HERE ! ;
+
+: C,
+	HERE @ C!	( store the character in the compiled image )
+	1 HERE +!	( increment HERE pointer by 1 byte )
+;
+
+: S" IMMEDIATE		( -- addr len )
+	STATE @ IF	( compiling? )
+		' LITSTRING ,	( compile LITSTRING )
+		HERE @		( save the address of the length word on the stack )
+		0 ,		( dummy length - we don't know what it is yet )
+		BEGIN
+			KEY 		( get next character of the string )
+			DUP '"' <>
+		WHILE
+			C,		( copy character )
+		REPEAT
+		DROP		( drop the double quote character at the end )
+		DUP		( get the saved address of the length word )
+		HERE @ SWAP -	( calculate the length )
+		4-		( subtract 4 (because we measured from the start of the length word) )
+		SWAP !		( and back-fill the length location )
+		ALIGN		( round up to next multiple of 4 bytes for the remaining code )
+	ELSE		( immediate mode )
+		HERE @	( get the start address of the temporary space )
+		BEGIN
+			KEY
+			DUP '"' <>
+		WHILE
+			OVER C!		( save next character )
+			1+		( increment address )
+		REPEAT
+		DROP		( drop the final " character )
+		HERE @ -	( calculate the length )
+		HERE @		( push the start address )
+		SWAP 		( addr len )
+	THEN
+;
+
+: ." IMMEDIATE		( -- )
+	STATE @ IF	( compiling? )
+		[COMPILE] S"	( read the string, and compile LITSTRING, etc. )
+		' TELL ,	( compile the final TELL )
+	ELSE
+		( In immediate mode, just read characters and print them until we get
+		  to the ending double quote. )
+		BEGIN
+			KEY
+			DUP '"' = IF
+				DROP	( drop the double quote character )
+				EXIT	( return from this function )
+			THEN
+			EMIT
+		AGAIN
+	THEN
+;
+
+: CONSTANT
+	WORD		( get the name (the name follows CONSTANT) )
+	CREATE		( make the dictionary entry )
+	DOCOL ,		( append DOCOL (the codeword field of this word) )
+	' LIT ,		( append the codeword LIT )
+	,		( append the value on the top of the stack )
+	' EXIT ,	( append the codeword EXIT )
+;
+
+: ALLOT		( n -- addr )
+	HERE @ SWAP	( here n )
+	HERE +!		( adds n to HERE, after this the old value of HERE is still on the stack )
+;
+
+: CELLS ( n -- n ) 4 * ;
+
+: VARIABLE
+	1 CELLS ALLOT	( allocate 1 cell of memory, push the pointer to this memory )
+	WORD CREATE	( make the dictionary entry (the name follows VARIABLE) )
+	DOCOL ,		( append DOCOL (the codeword field of this word) )
+	' LIT ,		( append the codeword LIT )
+	,		( append the pointer to the new memory )
+	' EXIT ,	( append the codeword EXIT )
+;
+
+: VALUE		( n -- )
+	WORD CREATE	( make the dictionary entry (the name follows VALUE) )
+	DOCOL ,		( append DOCOL )
+	' LIT ,		( append the codeword LIT )
+	,		( append the initial value )
+	' EXIT ,	( append the codeword EXIT )
+;
+
+: TO IMMEDIATE	( n -- )
+	WORD		( get the name of the value )
+	FIND		( look it up in the dictionary )
+	>DFA		( get a pointer to the first data field (the 'LIT') )
+	4+		( increment to point at the value )
+	STATE @ IF	( compiling? )
+		' LIT ,		( compile LIT )
+		,		( compile the address of the value )
+		' ! ,		( compile ! )
+	ELSE		( immediate mode )
+		!		( update it straightaway )
+	THEN
+;
+
+( x +TO VAL adds x to VAL )
+: +TO IMMEDIATE
+	WORD		( get the name of the value )
+	FIND		( look it up in the dictionary )
+	>DFA		( get a pointer to the first data field (the 'LIT') )
+	4+		( increment to point at the value )
+	STATE @ IF	( compiling? )
+		' LIT ,		( compile LIT )
+		,		( compile the address of the value )
+		' +! ,		( compile +! )
+	ELSE		( immediate mode )
+		+!		( update it straightaway )
+	THEN
+;
+
+: ID.
+	4+                      ( skip over the link pointer )
+	DUP C@	                ( get the flags/length byte )
+	LENMASK-FLAG AND        ( mask out the flags - just want the length )
+
+	BEGIN
+		DUP 0>		( length > 0? )
+	WHILE
+		SWAP 1+		( addr len -- len addr+1 )
+		DUP C@		( len addr -- len addr char | get the next character)
+		EMIT		( len addr char -- len addr | and print it)
+		SWAP 1-		( len addr -- addr len-1    | subtract one from length )
+	REPEAT
+	2DROP	( len addr -- )
+;
+
+: ?HIDDEN
+	4+		( skip over the link pointer )
+	C@		( get the flags/length byte )
+	HIDDEN-FLAG AND	( mask the F_HIDDEN flag and return it (as a truth value) )
+;
+
+: ?IMMEDIATE
+	4+		( skip over the link pointer )
+	C@		( get the flags/length byte )
+	IMM-FLAG AND	( mask the F_IMMED flag and return it (as a truth value) )
+;
+
+: WORDS
+	LATEST @	( start at LATEST dictionary entry )
+	BEGIN
+		?DUP		( while link pointer is not null )
+	WHILE
+		DUP ?HIDDEN NOT IF	( ignore hidden words )
+			DUP ID.		( but if not hidden, print the word )
+			SPACE
+		THEN
+		@		( dereference the link pointer - go to previous word )
+	REPEAT
+	CR
+;
