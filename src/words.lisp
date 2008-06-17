@@ -38,7 +38,8 @@
                       collect (etypecase word 
                                 (symbol `(word (address ,(intern (symbol-name word) :keyword))))
                                 (number `(word ,word))
-                                (character `(word ,(aref (string-to-octets (format nil "~a" word) armish::*string-encoding*) 0)))))))
+                                (character `(word ,(aref (string-to-octets (format nil "~a" word) armish::*string-encoding*) 0)))
+                                (string word)))))
     `(defword-builder ,name (:flags ,flags :forth-name ,forth-name)
        (word (address :%docol))
        ,@word-list
