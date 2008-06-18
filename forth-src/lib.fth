@@ -195,11 +195,12 @@
 
 : U.R		( u width -- )
 	SWAP		( width u )
-	DUP		( width u u )
+        DUP		( width u u )
 	UWIDTH		( width u uwidth )
-	-ROT		( u uwidth width )
-	SWAP -		( u width-uwidth )
-	U.
+        -ROT		( u uwidth width )
+        SWAP -		( u width-uwidth )
+        SPACES
+        U.
 ;
 
 (
