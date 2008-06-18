@@ -431,3 +431,202 @@
 	REPEAT
 	CR
 ;
+
+: FORGET
+	WORD FIND	( find the word, gets the dictionary entry address )
+	DUP @ LATEST !	( set LATEST to point to the previous word )
+	HERE !		( and store HERE with the dictionary address )
+;
+
+: DUMP		( addr len -- )
+	BASE @ ROT		( save the current BASE at the bottom of the stack )
+	HEX			( and switch to hexadecimal mode )
+
+	BEGIN
+		?DUP		( while len > 0 )
+	WHILE
+		OVER 8 U.R	( print the address )
+		SPACE
+
+		( print up to 16 words on this line )
+		2DUP		( addr len addr len )
+		1- 15 AND 1+	( addr len addr linelen )
+		BEGIN
+			?DUP		( while linelen > 0 )
+		WHILE
+			SWAP		( addr len linelen addr )
+			DUP C@		( addr len linelen addr byte )
+			2 .R SPACE	( print the byte )
+			1+ SWAP 1-	( addr len linelen addr -- addr len addr+1 linelen-1 )
+		REPEAT
+		DROP		( addr len )
+
+		( print the ASCII equivalents )
+		2DUP 1- 15 AND 1+ ( addr len addr linelen )
+		BEGIN
+			?DUP		( while linelen > 0)
+		WHILE
+			SWAP		( addr len linelen addr )
+			DUP C@		( addr len linelen addr byte )
+			DUP 32 128 WITHIN IF	( 32 <= c < 128? )
+				EMIT
+			ELSE
+				DROP '.' EMIT
+			THEN
+			1+ SWAP 1-	( addr len linelen addr -- addr len addr+1 linelen-1 )
+		REPEAT
+		DROP		( addr len )
+		CR
+
+		DUP 1- 15 AND 1+ ( addr len linelen )
+		DUP		( addr len linelen linelen )
+		ROT		( addr linelen len linelen )
+		-		( addr linelen len-linelen )
+		ROT		( len-linelen addr linelen )
+		+		( len-linelen addr+linelen )
+		SWAP		( addr-linelen len-linelen )
+	REPEAT
+
+	DROP			( restore stack )
+	BASE !			( restore saved BASE )
+;
+
+: CASE IMMEDIATE
+	0		( push 0 to mark the bottom of the stack )
+;
+
+: OF IMMEDIATE
+	' OVER ,	( compile OVER )
+	' = ,		( compile = )
+	[COMPILE] IF	( compile IF )
+	' DROP ,  	( compile DROP )
+;
+
+: ENDOF IMMEDIATE
+	[COMPILE] ELSE	( ENDOF is the same as ELSE )
+;
+
+: ENDCASE IMMEDIATE
+	' DROP ,	( compile DROP )
+
+	( keep compiling THEN until we get to our zero marker )
+	BEGIN
+		?DUP
+	WHILE
+		[COMPILE] THEN
+	REPEAT
+;
+
+: CFA>
+	LATEST @	( start at LATEST dictionary entry )
+	BEGIN
+		?DUP		( while link pointer is not null )
+	WHILE
+		2DUP SWAP	( cfa curr curr cfa )
+		< IF		( current dictionary entry < cfa? )
+			NIP		( leave curr dictionary entry on the stack )
+			EXIT
+		THEN
+		@		( follow link pointer back )
+	REPEAT
+	DROP		( restore stack )
+	0		( sorry, nothing found )
+;
+
+: SEE
+	WORD FIND	( find the dictionary entry to decompile )
+
+	( Now we search again, looking for the next word in the dictionary.  This gives us
+	  the length of the word that we will be decompiling.  (Well, mostly it does). )
+	HERE @		( address of the end of the last compiled word )
+	LATEST @	( word last curr )
+	BEGIN
+		2 PICK		( word last curr word )
+		OVER		( word last curr word curr )
+		<>		( word last curr word<>curr? )
+	WHILE			( word last curr )
+		NIP		( word curr )
+		DUP @		( word curr prev (which becomes: word last curr) )
+	REPEAT
+
+	DROP		( at this point, the stack is: start-of-word end-of-word )
+	SWAP		( end-of-word start-of-word )
+
+	( begin the definition with : NAME [IMMEDIATE] )
+	':' EMIT SPACE DUP ID. SPACE
+	DUP ?IMMEDIATE IF ." IMMEDIATE " THEN
+
+	>DFA		( get the data address, ie. points after DOCOL | end-of-word start-of-data )
+
+	( now we start decompiling until we hit the end of the word )
+	BEGIN		( end start )
+		2DUP >
+	WHILE
+		DUP @		( end start codeword )
+
+		CASE
+		' LIT OF		( is it LIT ? )
+			4 + DUP @		( get next word which is the integer constant )
+			.			( and print it )
+		ENDOF
+		' LITSTRING OF		( is it LITSTRING ? )
+			[ CHAR S ] LITERAL EMIT '"' EMIT SPACE ( print S"<space> )
+			4 + DUP @		( get the length word )
+			SWAP 4 + SWAP		( end start+4 length )
+			2DUP TELL		( print the string )
+			'"' EMIT SPACE		( finish the string with a final quote )
+			+ ALIGNED		( end start+4+len, aligned )
+			4 -			( because we're about to add 4 below )
+		ENDOF
+		' 0BRANCH OF		( is it 0BRANCH ? )
+			." 0BRANCH ( "
+			4 + DUP @		( print the offset )
+			.
+			." ) "
+		ENDOF
+		' BRANCH OF		( is it BRANCH ? )
+			." BRANCH ( "
+			4 + DUP @		( print the offset )
+			.
+			." ) "
+		ENDOF
+		' ' OF			( is it ' (TICK) ? )
+			[ CHAR ' ] LITERAL EMIT SPACE
+			4 + DUP @		( get the next codeword )
+			CFA>			( and force it to be printed as a dictionary entry )
+			ID. SPACE
+		ENDOF
+		' EXIT OF		( is it EXIT? )
+			( We expect the last word to be EXIT, and if it is then we don't print it
+			  because EXIT is normally implied by ;.  EXIT can also appear in the middle
+			  of words, and then it needs to be printed. )
+			2DUP			( end start end start )
+			4 +			( end start end start+4 )
+			<> IF			( end start | we're not at the end )
+				." EXIT "
+			THEN
+		ENDOF
+					( default case: )
+			DUP			( in the default case we always need to DUP before using )
+			CFA>			( look up the codeword to get the dictionary entry )
+			ID. SPACE		( and print it )
+		ENDCASE
+
+		4 +		( end start+4 )
+	REPEAT
+
+	';' EMIT CR
+
+	2DROP		( restore stack )
+;
+
+: :NONAME
+	0 0 CREATE	( create a word with no name - we need a dictionary header because ; expects it )
+	HERE @		( current HERE value is the address of the codeword, ie. the xt )
+	DOCOL ,		( compile DOCOL (the codeword) )
+	]		( go into compile mode )
+;
+
+: ['] IMMEDIATE
+	' LIT ,		( compile LIT )
+;
