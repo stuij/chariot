@@ -172,13 +172,13 @@
 ;
 
 : .S		( -- )
-	DSP@		( get current stack pointer )
+	S0 @ 4- 	( get current stack pointer )
 	BEGIN
-		DUP S0 @ <
+		DUP DSP@ 4+ >
 	WHILE
 		DUP @ U.	( print the stack element )
 		SPACE
-		4+		( move up )
+		4-		( move up )
 	REPEAT
 	DROP
 ;
