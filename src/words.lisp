@@ -497,6 +497,7 @@
 
 ;; output
 (defcode emit ()
+  
   (pop-ps tmp-1)
   (load-jr tmp-3 tobp)
 
